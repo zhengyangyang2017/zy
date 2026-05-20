@@ -11,5 +11,5 @@
     "composite": true,
     "paths": { "@shared/*": ["./src/types/*"] }
   },
-  "include": ["electron/**/*.ts", "src/types/**/*.ts"]
+  "include": ["src/main/**/*.ts", "src/preload/**/*.ts", "src/types/**/*.ts"]
 }
