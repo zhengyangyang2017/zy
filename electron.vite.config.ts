@@ -13,11 +13,8 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    root: resolve('.'),
-    build: {
-      rollupOptions: {
-        input: resolve('index.html')
-      }
+    server: {
+      fs: { strict: false }
     },
     resolve: {
       alias: {
