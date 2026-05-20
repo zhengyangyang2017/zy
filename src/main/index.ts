@@ -10,12 +10,14 @@ function createWindow(): void {
     height: 800,
     minWidth: 800,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     title: 'Claude Code',
     backgroundColor: '#0a0a14',
+    show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
+      nodeIntegration: false,
       contextIsolation: true
     }
   })
