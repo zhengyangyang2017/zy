@@ -13,6 +13,12 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    root: resolve('src/renderer'),
+    build: {
+      rollupOptions: {
+        input: resolve('src/renderer/index.html')
+      }
+    },
     resolve: {
       alias: {
         '@': resolve('src'),
