@@ -1,0 +1,36 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import type { PanelLayout, PanelTab } from '../types'
+
+interface PanelState extends PanelLayout {
+  toggleSidebar: () => void
+  toggleRightPanel: () => void
+  toggleBottomPanel: () => void
+  setRightPanelTab: (tab: PanelTab) => void
+  setSidebarWidth: (w: number) => void
+  setRightPanelWidth: (w: number) => void
+  setBottomPanelHeight: (h: number) => void
+}
+
+export const usePanelStore = create<PanelState>()(
+  persist(
+    (set) => ({
+      sidebarOpen: true,
+      sidebarWidth: 240,
+      rightPanelOpen: false,
+      rightPanelWidth: 280,
+      rightPanelTab: 'files',
+      bottomPanelOpen: false,
+      bottomPanelHeight: 200,
+
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
+      toggleBottomPanel: () => set((s) => ({ bottomPanelOpen: !s.bottomPanelOpen })),
+      setRightPanelTab: (tab) => set({ rightPanelOpen: true, rightPanelTab: tab }),
+      setSidebarWidth: (w) => set({ sidebarWidth: w }),
+      setRightPanelWidth: (w) => set({ rightPanelWidth: w }),
+      setBottomPanelHeight: (h) => set({ bottomPanelHeight: h })
+    }),
+    { name: 'panel-layout' }
+  )
+)
