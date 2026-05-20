@@ -1,9 +1,10 @@
 import { ipcMain } from 'electron'
+import { registerChatIpc } from './services/anthropic'
 
 export function registerIpcHandlers(): void {
-  // Chat IPC will be registered in Task 5
+  registerChatIpc()
 
-  // Session stubs
+  // Session stubs (will be wired to SQLite in Phase 3)
   ipcMain.handle('session:list', async () => [])
   ipcMain.handle('session:create', async (_e, title: string) => ({
     id: crypto.randomUUID(), title, createdAt: new Date().toISOString(),
