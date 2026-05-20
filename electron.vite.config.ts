@@ -13,10 +13,9 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    root: resolve('src/renderer'),
     build: {
       rollupOptions: {
-        input: resolve('src/renderer/index.html')
+        input: resolve('index.html')
       }
     },
     resolve: {
