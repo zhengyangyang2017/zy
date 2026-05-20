@@ -10,7 +10,6 @@ interface Props {
   sidebarWidth: number
   rightPanelWidth: number
   bottomPanelHeight: number
-  sidebarOpen: boolean
   rightPanelOpen: boolean
   bottomPanelOpen: boolean
 }
