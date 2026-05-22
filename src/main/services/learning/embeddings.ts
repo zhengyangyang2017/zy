@@ -3,35 +3,46 @@
  *
  * Uses ONNX runtime to run embedding models locally.
  * Default: all-MiniLM-L6-v2 (384-dim, English-focused, fast).
- * Cache: embeddings are cached in-memory to avoid recomputation.
+ * Uses dynamic import because @xenova/transformers is ESM-only.
+ *
+ * Graceful fallback: if model load fails, returns zero vectors
+ * so the app can start without embeddings (keyword search still works).
  */
 
-import { pipeline, type FeatureExtractionPipeline } from '@xenova/transformers'
+import type { FeatureExtractionPipeline } from '@xenova/transformers'
 
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2'
 const DIMENSION = 384
 
 let extractor: FeatureExtractionPipeline | null = null
-let initPromise: Promise<void> | null = null
+let initPromise: Promise<FeatureExtractionPipeline | null> | null = null
+let initFailed = false
 
-async function getExtractor(): Promise<FeatureExtractionPipeline> {
+async function getExtractor(): Promise<FeatureExtractionPipeline | null> {
+  if (initFailed) return null
   if (extractor) return extractor
-  if (initPromise) {
-    await initPromise
-    return extractor!
-  }
+  if (initPromise) return initPromise
 
   initPromise = (async () => {
-    extractor = await pipeline('feature-extraction', MODEL_NAME)
+    try {
+      const { pipeline } = await import('@xenova/transformers')
+      extractor = await pipeline('feature-extraction', MODEL_NAME)
+      console.log(`[Embeddings] Model loaded: ${MODEL_NAME}`)
+      return extractor
+    } catch (err) {
+      initFailed = true
+      console.error('[Embeddings] Failed to load model, embeddings disabled:', err)
+      return null
+    }
   })()
 
-  await initPromise
-  return extractor!
+  return initPromise
 }
 
 /** Convert a single text to a float32 embedding vector */
 export async function embed(text: string): Promise<Float32Array> {
   const ext = await getExtractor()
+  if (!ext) return new Float32Array(DIMENSION) // zero vector fallback
   const result = await ext(text, { pooling: 'mean', normalize: true })
   return new Float32Array(result.data as unknown as ArrayBuffer)
 }
@@ -39,7 +50,7 @@ export async function embed(text: string): Promise<Float32Array> {
 /** Batch embed multiple texts in a single inference call */
 export async function embedBatch(texts: string[]): Promise<Float32Array[]> {
   const ext = await getExtractor()
-  // Process sequentially — the pipeline batches internally for reasonable sizes
+  if (!ext) return texts.map(() => new Float32Array(DIMENSION))
   const results: Float32Array[] = []
   for (const text of texts) {
     const result = await ext(text, { pooling: 'mean', normalize: true })
