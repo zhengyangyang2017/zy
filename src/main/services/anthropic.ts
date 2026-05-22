@@ -33,14 +33,14 @@ export function registerChatIpc(): void {
       throw new Error('API key not set')
     }
 
-    // Retrieve relevant knowledge context
-    const lastUserMsg = messages.filter(m => m.role === 'user').pop()
-    const knowledgeContext = lastUserMsg ? await getContextAugmentation(lastUserMsg.content) : ''
-
     const abortController = new AbortController()
     activeStreams.set(sessionId, abortController)
 
     try {
+      // Retrieve relevant knowledge context (safe: catches embedding errors)
+      const lastUserMsg = messages.filter(m => m.role === 'user').pop()
+      const knowledgeContext = lastUserMsg ? await getContextAugmentation(lastUserMsg.content).catch(() => '') : ''
+
       let fullContent = ''
 
       if (isAnthropic) {
