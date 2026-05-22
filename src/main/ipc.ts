@@ -83,9 +83,10 @@ export function registerIpcHandlers(): void {
 
       if (result.canceled) return { canceled: true, files: [] }
 
-      const MAX_FILE_SIZE = 100 * 1024 // 100KB per file
-      const MAX_TOTAL_SIZE = 300 * 1024 // 300KB total across all files
-      const MAX_FILES = 20
+      const MAX_FILE_READ = 20 * 1024 * 1024 // 20MB max read per file
+      const MAX_FILE_SEND = 100 * 1024 // 100KB sent to AI per file (truncated)
+      const MAX_TOTAL_SEND = 500 * 1024 // 500KB total sent to AI
+      const MAX_FILES = 50
 
       let totalSize = 0
       const files = []
@@ -95,20 +96,32 @@ export function registerIpcHandlers(): void {
           const st = await fsStat(filePath)
           const fileSize = st.size
 
+          if (fileSize > MAX_FILE_READ) {
+            files.push({
+              path: filePath,
+              name: basename(filePath),
+              content: null,
+              size: fileSize,
+              truncated: false,
+              error: `文件过大 (${(fileSize / 1024 / 1024).toFixed(0)}MB > 20MB)`,
+            })
+            continue
+          }
+
           let content: string
           let truncated = false
 
-          if (fileSize > MAX_FILE_SIZE) {
-            // For large files: read head (first 60KB) + tail (last 15KB)
-            const head = await readFile(filePath, { encoding: 'utf-8' })
-              .then(c => c.slice(0, 60 * 1024))
-            const tailSize = Math.min(15 * 1024, fileSize)
+          if (fileSize > MAX_FILE_SEND) {
+            // Read head for truncation
+            const headSize = 70 * 1024
+            const tailSize = Math.min(30 * 1024, fileSize - headSize)
+            const head = (await readFile(filePath, { encoding: 'utf-8' })).slice(0, headSize)
             const tailFd = await fsOpen(filePath, 'r')
             const tailBuf = Buffer.alloc(tailSize)
             await tailFd.read(tailBuf, 0, tailSize, fileSize - tailSize)
             await tailFd.close()
             const tail = tailBuf.toString('utf-8')
-            const skipped = ((fileSize - 60 * 1024 - tailSize) / 1024).toFixed(0)
+            const skipped = ((fileSize - headSize - tailSize) / 1024).toFixed(0)
             content = head + `\n\n... [${skipped}KB 已截断] ...\n\n` + tail
             truncated = true
           } else {
@@ -116,7 +129,7 @@ export function registerIpcHandlers(): void {
           }
 
           totalSize += content.length
-          if (totalSize > MAX_TOTAL_SIZE && files.length > 0) break
+          if (totalSize > MAX_TOTAL_SEND && files.length > 0) break
 
           files.push({
             path: filePath,

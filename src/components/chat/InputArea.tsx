@@ -17,11 +17,15 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
+const MAX_FILE = 20 * 1024 * 1024   // 20MB max read
+const MAX_SEND = 100 * 1024         // 100KB sent to AI per file
+
 export function InputArea() {
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<SelectedFile[]>([])
   const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const { addMessage, appendToStream, commitStream, setStreaming, clearStream } =
     useChatStore()
@@ -31,7 +35,7 @@ export function InputArea() {
   const activeSessionRef = useRef(activeSessionId)
   activeSessionRef.current = activeSessionId
 
-  // Register stream event listeners once per active session lifetime
+  // Register stream event listeners
   useEffect(() => {
     if (!activeSessionId) return
 
@@ -58,6 +62,30 @@ export function InputArea() {
 
     return () => { cleanup1(); cleanup2(); cleanup3() }
   }, [activeSessionId])
+
+  // Read file content from File object (drag-and-drop / paste)
+  function readFileObject(file: File) {
+    if (file.size > MAX_FILE) {
+      setFiles(prev => [...prev, { name: file.name, path: file.name, content: null, size: file.size }])
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const content = reader.result as string | null
+      const truncated = (content?.length || 0) > MAX_SEND
+      setFiles(prev => [...prev, {
+        name: file.name,
+        path: file.name,
+        content: truncated ? content!.slice(0, 70 * 1024) + '\n\n... [已截断] ...\n\n' + content!.slice(-30 * 1024) : content,
+        size: file.size,
+        truncated,
+      }])
+    }
+    reader.onerror = () => {
+      setFiles(prev => [...prev, { name: file.name, path: file.name, content: null, size: file.size }])
+    }
+    reader.readAsText(file)
+  }
 
   const handlePickFile = useCallback(async () => {
     setUploading(true)
@@ -86,7 +114,6 @@ export function InputArea() {
     setInput('')
     setError(null)
 
-    // Build message content with file contents
     let messageContent = content
     if (files.length > 0) {
       const fileParts = files.map((f) => {
@@ -130,38 +157,13 @@ export function InputArea() {
     }
   }
 
-  const [dragOver, setDragOver] = useState(false)
-
-  if (!activeSessionId) return null
-
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDragOver(false)
     const droppedFiles = e.dataTransfer?.files
     if (droppedFiles) {
       for (const file of Array.from(droppedFiles)) {
-        const reader = new FileReader()
-        reader.onload = () => {
-          const content = reader.result as string | null
-          const size = file.size
-          const MAX = 100 * 1024
-          setFiles(prev => [...prev, {
-            name: file.name,
-            path: file.name,
-            content: content && content.length > MAX ? content.slice(0, MAX) + '\n\n... [文件已截断]' : content,
-            size,
-            truncated: (content?.length || 0) > MAX,
-          }])
-        }
-        reader.onerror = () => {
-          setFiles(prev => [...prev, {
-            name: file.name,
-            path: file.name,
-            content: null,
-            size: file.size,
-          }])
-        }
-        reader.readAsText(file)
+        readFileObject(file)
       }
     }
   }
@@ -174,6 +176,8 @@ export function InputArea() {
   function handleDragLeave() {
     setDragOver(false)
   }
+
+  if (!activeSessionId) return null
 
   return (
     <div
@@ -234,7 +238,6 @@ export function InputArea() {
       )}
 
       <div className="flex items-end gap-2 max-w-4xl mx-auto">
-        {/* File picker button */}
         <button
           onClick={handlePickFile}
           disabled={isStreaming || uploading}
@@ -258,22 +261,7 @@ export function InputArea() {
                 if (item.kind === 'file') {
                   e.preventDefault()
                   const file = item.getAsFile()
-                  if (file) {
-                    const reader = new FileReader()
-                    reader.onload = () => {
-                      const content = reader.result as string | null
-                      const size = file.size
-                      const MAX = 100 * 1024
-                      setFiles(prev => [...prev, {
-                        name: file.name,
-                        path: file.name,
-                        content: content && content.length > MAX ? content.slice(0, MAX) + '\n\n... [文件已截断]' : content,
-                        size,
-                        truncated: (content?.length || 0) > MAX,
-                      }])
-                    }
-                    reader.readAsText(file)
-                  }
+                  if (file) readFileObject(file)
                 }
               }
             }
