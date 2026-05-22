@@ -7,6 +7,14 @@ interface SelectedFile {
   name: string
   path: string
   content: string | null
+  size?: number
+  truncated?: boolean
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
 export function InputArea() {
@@ -134,17 +142,23 @@ export function InputArea() {
       for (const file of Array.from(droppedFiles)) {
         const reader = new FileReader()
         reader.onload = () => {
+          const content = reader.result as string | null
+          const size = file.size
+          const MAX = 100 * 1024
           setFiles(prev => [...prev, {
             name: file.name,
             path: file.name,
-            content: reader.result as string | null
+            content: content && content.length > MAX ? content.slice(0, MAX) + '\n\n... [文件已截断]' : content,
+            size,
+            truncated: (content?.length || 0) > MAX,
           }])
         }
         reader.onerror = () => {
           setFiles(prev => [...prev, {
             name: file.name,
             path: file.name,
-            content: null
+            content: null,
+            size: file.size,
           }])
         }
         reader.readAsText(file)
@@ -182,23 +196,40 @@ export function InputArea() {
 
       {/* Selected files */}
       {files.length > 0 && (
-        <div className="max-w-4xl mx-auto mb-2 flex flex-wrap gap-1.5">
-          {files.map((f, i) => (
-            <span
-              key={i}
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs ${
-                f.content === null ? 'bg-red-900/30 text-red-300' : 'bg-active text-text-secondary'
-              }`}
-            >
-              {f.content === null ? '⚠ ' : '📄 '}{f.name}
-              <button
-                onClick={() => removeFile(i)}
-                className="text-text-muted hover:text-red-400 ml-0.5"
+        <div className="max-w-4xl mx-auto mb-2">
+          <div className="flex flex-wrap gap-1.5">
+            {files.map((f, i) => (
+              <span
+                key={i}
+                title={f.path}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs ${
+                  f.content === null
+                    ? 'bg-red-900/30 text-red-300'
+                    : f.truncated
+                    ? 'bg-yellow-900/30 text-yellow-300'
+                    : 'bg-active text-text-secondary'
+                }`}
               >
-                ✕
-              </button>
-            </span>
-          ))}
+                {f.content === null ? '⚠ ' : f.truncated ? '✂ ' : '📄 '}
+                {f.name}
+                {f.size !== undefined && (
+                  <span className="text-[10px] opacity-60">{formatSize(f.size)}</span>
+                )}
+                <button
+                  onClick={() => removeFile(i)}
+                  className="text-text-muted hover:text-red-400 ml-0.5"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-[10px] text-text-muted">
+            <span>{files.length} 个文件 · {formatSize(files.reduce((s, f) => s + (f.size || 0), 0))}</span>
+            {files.some(f => f.truncated) && (
+              <span className="text-yellow-400">✂ 已截断大文件</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -230,10 +261,15 @@ export function InputArea() {
                   if (file) {
                     const reader = new FileReader()
                     reader.onload = () => {
+                      const content = reader.result as string | null
+                      const size = file.size
+                      const MAX = 100 * 1024
                       setFiles(prev => [...prev, {
                         name: file.name,
                         path: file.name,
-                        content: reader.result as string | null
+                        content: content && content.length > MAX ? content.slice(0, MAX) + '\n\n... [文件已截断]' : content,
+                        size,
+                        truncated: (content?.length || 0) > MAX,
                       }])
                     }
                     reader.readAsText(file)
