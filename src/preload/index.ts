@@ -70,6 +70,9 @@ const api = {
   gitLog: () =>
     ipcRenderer.invoke('git:log'),
 
+  gitDiff: (file: string) =>
+    ipcRenderer.invoke('git:diff', file),
+
   // Tasks
   listTasks: () =>
     ipcRenderer.invoke('tasks:list'),

@@ -170,6 +170,16 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle('git:diff', async (_e, file: string) => {
+    try {
+      const diff = execSync(`git diff -- "${file}"`, { encoding: 'utf-8', timeout: 5000 })
+      const staged = execSync(`git diff --cached -- "${file}"`, { encoding: 'utf-8', timeout: 5000 })
+      return { diff: staged + diff, error: null }
+    } catch (err) {
+      return { diff: '', error: String(err) }
+    }
+  })
+
   // === Tasks ===
   ipcMain.handle('tasks:list', async () => {
     return getTasks()
