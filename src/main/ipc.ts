@@ -74,11 +74,7 @@ export function registerIpcHandlers(): void {
       if (!win) return { canceled: true, files: [] }
 
       const result = await dialog.showOpenDialog(win, {
-        properties: ['openFile', 'multiSelections'],
-        filters: [
-          { name: 'All Files', extensions: ['*'] },
-          { name: 'Text', extensions: ['txt', 'md', 'js', 'ts', 'tsx', 'jsx', 'json', 'css', 'html', 'py', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'yml', 'yaml', 'xml', 'svg', 'csv'] }
-        ]
+        properties: ['openFile', 'multiSelections']
       })
 
       if (result.canceled) return { canceled: true, files: [] }
