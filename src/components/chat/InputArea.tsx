@@ -122,9 +122,9 @@ export function InputArea() {
     }
   }
 
-  if (!activeSessionId) return null
-
   const [dragOver, setDragOver] = useState(false)
+
+  if (!activeSessionId) return null
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
