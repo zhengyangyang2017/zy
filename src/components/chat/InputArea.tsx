@@ -208,9 +208,9 @@ export function InputArea() {
           onClick={handlePickFile}
           disabled={isStreaming || uploading}
           className="flex items-center gap-1 px-2.5 py-2.5 text-text-muted hover:text-text-primary hover:bg-hover disabled:opacity-30 rounded-lg transition-colors flex-shrink-0"
-          title="上传文件"
+          title="添加文件"
         >
-          {uploading ? '...' : '+'}
+          <span className="text-base leading-none">{uploading ? '⏳' : '📎'}</span>
         </button>
 
         <textarea
