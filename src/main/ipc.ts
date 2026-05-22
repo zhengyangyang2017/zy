@@ -6,7 +6,7 @@ import { getDb } from './db'
 import type { SessionRow, MessageRow } from './db'
 import { getKnowledgeStats, startResearch } from './services/learning/orchestrator'
 import { enqueueTask, getTasks } from './services/learning/scheduler'
-import { execSync } from 'child_process'
+import { execSync, exec } from 'child_process'
 
 export function registerIpcHandlers(): void {
   registerChatIpc()
@@ -196,6 +196,20 @@ export function registerIpcHandlers(): void {
   // === Knowledge stats ===
   ipcMain.handle('knowledge:stats', async () => {
     return getKnowledgeStats()
+  })
+
+  // === Terminal ===
+  ipcMain.handle('terminal:exec', async (_e, cmd: string) => {
+    return new Promise<{ output: string; error: string | null }>((resolve) => {
+      const opts = { cwd: process.cwd(), timeout: 30000, maxBuffer: 1024 * 1024 }
+      exec(cmd, opts, (err, stdout, stderr) => {
+        if (err) {
+          resolve({ output: stderr || err.message, error: null })
+        } else {
+          resolve({ output: stdout || stderr || '', error: null })
+        }
+      })
+    })
   })
 }
 

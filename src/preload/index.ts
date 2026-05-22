@@ -89,7 +89,11 @@ const api = {
 
   // App
   getProjectRoot: () =>
-    ipcRenderer.invoke('app:projectRoot')
+    ipcRenderer.invoke('app:projectRoot'),
+
+  // Terminal
+  executeShellCommand: (cmd: string) =>
+    ipcRenderer.invoke('terminal:exec', cmd)
 }
 
 contextBridge.exposeInMainWorld('api', api)
