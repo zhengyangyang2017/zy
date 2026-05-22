@@ -14,7 +14,7 @@ Three integrated learning capabilities, all running in background:
 2. **Research Agent** — web search + reading + knowledge synthesis
 3. **Evolution Agent** — analyzes response quality, self-improves over time
 
-Data is stored as a **knowledge graph** (nodes + edges) in SQLite with DeepSeek embeddings for semantic retrieval. All processing happens asynchronously in the Electron main process, zero UI impact.
+Data is stored as a **knowledge graph** (nodes + edges) in SQLite with **local Transformers.js** embeddings (multilingual-e5-small, 384-dim) for semantic retrieval. All processing happens asynchronously in the Electron main process, zero UI impact.
 
 ---
 
@@ -42,7 +42,7 @@ Data is stored as a **knowledge graph** (nodes + edges) in SQLite with DeepSeek 
 │  └─────────────────────────────────────────────────┘  │
 │                         │                             │
 │  ┌──────────────────────┴──────────────────────────┐  │
-│  │        External APIs: DeepSeek + WebSearch       │  │
+│  │   External: DeepSeek API + WebSearch + WebFetch    │  │
 │  └─────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────┘
 ```
@@ -80,7 +80,7 @@ CREATE VIRTUAL TABLE knowledge_fts USING fts5(
   content_rowid=rowid
 );
 
--- Vector store (float32 binary, 1536 dims = 6144 bytes)
+-- Vector store (float32 binary, 384 dims = 1536 bytes, multilingual-e5-small)
 CREATE TABLE knowledge_vectors (
   node_id TEXT PRIMARY KEY REFERENCES knowledge_nodes(id) ON DELETE CASCADE,
   vector BLOB NOT NULL,
@@ -201,7 +201,7 @@ src/main/
       research-agent.ts       # ResearchAgent: web search → knowledge synthesis
       evolution-agent.ts      # EvolutionAgent: self-analysis → strategy generation
       knowledge-graph.ts      # Graph CRUD, transitive closure, reachability
-      embeddings.ts           # DeepSeek embeddings API wrapper (batch + cache)
+      embeddings.ts           # Local Transformers.js embeddings (multilingual-e5-small, 384-dim)
       retrieval.ts            # Hybrid retrieval: FTS5 + vector semantic search
       lsh.ts                  # Locality-sensitive hashing for dedup pre-filter
       scheduler.ts            # Background task scheduler
@@ -329,7 +329,7 @@ User question
 
 ### Phase 1: Knowledge Graph Foundation (~2 days)
 - `knowledge-graph.ts` — graph CRUD, transitive closure
-- `embeddings.ts` — DeepSeek embeddings API wrapper (batch + cache)
+- `embeddings.ts` — local Transformers.js embeddings, multilingual-e5-small, batch inference
 - `retrieval.ts` — FTS5 + vector hybrid retrieval, layered query
 - `lsh.ts` — locality-sensitive hashing for dedup
 - `db.ts` — all new table DDL
@@ -383,7 +383,7 @@ User question
 
 | Risk | Mitigation |
 |------|------------|
-| DeepSeek embedding API not available via Anthropic-compatible endpoint | Check API docs; fallback to separate embeddings endpoint or local model |
+| DeepSeek has no embedding API (verified 2026-05-22) | Using local Transformers.js (multilingual-e5-small, 384-dim, free, offline) |
 | API cost explosion | Daily budget cap + batch processing + LSH pre-filter |
 | Cold start: no knowledge at launch | Project file scan for seed nodes |
 | Graph bloat (too many low-quality nodes) | Periodic pruning via EvolutionAgent |
