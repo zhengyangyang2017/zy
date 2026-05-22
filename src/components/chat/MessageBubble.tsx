@@ -65,7 +65,7 @@ export function MessageBubble({ message }: Props) {
         {isUser ? 'Y' : '🤖'}
       </div>
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
+        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm message-content ${
           isUser
             ? 'bg-active text-text-primary'
             : 'bg-hover text-text-primary'

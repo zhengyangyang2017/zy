@@ -179,7 +179,8 @@
     border-radius: 6px;
   }
 
-  .markdown-body pre + .markdown-body {
-    /* Adjacent code blocks */
+  /* Allow text selection in chat messages */
+  .message-content {
+    user-select: text;
   }
 }

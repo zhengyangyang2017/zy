@@ -8,8 +8,12 @@ interface Props {
 export function CodeBlock({ language, code }: Props) {
   const [copied, setCopied] = useState(false)
 
-  function handleCopy() {
-    navigator.clipboard.writeText(code)
+  async function handleCopy() {
+    try {
+      await window.api.copyToClipboard(code)
+    } catch {
+      navigator.clipboard.writeText(code)
+    }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
@@ -25,8 +29,8 @@ export function CodeBlock({ language, code }: Props) {
           {copied ? '已复制' : '复制'}
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto">
-        <code className="text-sm font-mono text-text-primary whitespace-pre">
+      <pre className="p-4 overflow-x-auto select-text">
+        <code className="text-sm font-mono text-text-primary whitespace-pre select-text">
           {code}
         </code>
       </pre>
