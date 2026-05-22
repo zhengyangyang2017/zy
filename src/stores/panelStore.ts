@@ -7,6 +7,7 @@ interface PanelState extends PanelLayout {
   toggleRightPanel: () => void
   toggleBottomPanel: () => void
   setRightPanelTab: (tab: PanelTab) => void
+  toggleRightPanelTab: (tab: PanelTab) => void
   setSidebarWidth: (w: number) => void
   setRightPanelWidth: (w: number) => void
   setBottomPanelHeight: (h: number) => void
@@ -27,6 +28,10 @@ export const usePanelStore = create<PanelState>()(
       toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
       toggleBottomPanel: () => set((s) => ({ bottomPanelOpen: !s.bottomPanelOpen })),
       setRightPanelTab: (tab) => set({ rightPanelOpen: true, rightPanelTab: tab }),
+      toggleRightPanelTab: (tab) => set((s) => ({
+        rightPanelOpen: s.rightPanelOpen && s.rightPanelTab === tab ? false : true,
+        rightPanelTab: tab
+      })),
       setSidebarWidth: (w) => set({ sidebarWidth: w }),
       setRightPanelWidth: (w) => set({ rightPanelWidth: w }),
       setBottomPanelHeight: (h) => set({ bottomPanelHeight: h })

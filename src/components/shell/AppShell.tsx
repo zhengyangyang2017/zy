@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { TitleBar } from './TitleBar'
 import { StatusBar } from './StatusBar'
 
@@ -25,9 +25,12 @@ export function AppShell({
   bottomPanelOpen,
   bottomPanelHeight
 }: Props) {
+  const [isMac, setIsMac] = useState(false)
+  useEffect(() => { setIsMac(navigator.platform.toLowerCase().includes('mac')) }, [])
+
   return (
     <div className="flex flex-col h-screen bg-base">
-      <TitleBar />
+      {isMac && <TitleBar />}
 
       <div className="flex flex-1 overflow-hidden">
         <div

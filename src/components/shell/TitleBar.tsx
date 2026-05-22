@@ -4,7 +4,7 @@ export function TitleBar() {
       className="flex items-center justify-between h-10 bg-surface border-b border-hover px-2"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      <div className="flex items-center gap-2 text-xs text-text-muted pl-2">
+      <div className="flex items-center gap-2 text-xs text-text-muted pl-[70px]">
         <span className="font-semibold text-text-secondary">Claude Code</span>
       </div>
 

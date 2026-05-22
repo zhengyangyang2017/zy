@@ -3,8 +3,7 @@ import { usePanelStore } from '../stores/panelStore'
 
 export function useKeyboard() {
   const toggleSidebar = usePanelStore((s) => s.toggleSidebar)
-  const toggleRightPanel = usePanelStore((s) => s.toggleRightPanel)
-  const setRightPanelTab = usePanelStore((s) => s.setRightPanelTab)
+  const toggleRightPanelTab = usePanelStore((s) => s.toggleRightPanelTab)
   const toggleBottomPanel = usePanelStore((s) => s.toggleBottomPanel)
 
   useEffect(() => {
@@ -19,14 +18,12 @@ export function useKeyboard() {
           break
         case 'e':
           e.preventDefault()
-          setRightPanelTab('files')
-          toggleRightPanel()
+          toggleRightPanelTab('files')
           break
         case 't':
           if (e.shiftKey) {
             e.preventDefault()
-            setRightPanelTab('tasks')
-            toggleRightPanel()
+            toggleRightPanelTab('tasks')
           }
           break
         case '`':
@@ -38,5 +35,5 @@ export function useKeyboard() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleSidebar, toggleRightPanel, setRightPanelTab, toggleBottomPanel])
+  }, [toggleSidebar, toggleRightPanelTab, toggleBottomPanel])
 }

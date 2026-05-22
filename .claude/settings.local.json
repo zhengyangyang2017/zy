@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx electron-vite *)",
+      "Bash(npx tsc *)",
+      "Bash(curl -s http://localhost:5173/main.tsx)",
+      "Bash(pkill -f \"electron\")",
+      "Bash(pkill -f \"electron-vite\")",
+      "Bash(npm install *)",
+      "Bash(npx @electron/rebuild)",
+      "Read(//c/Users/郑扬/.claude/**)",
+      "Bash(ping -n 2 8.8.8.8)",
+      "Bash(curl -s --connect-timeout 5 https://www.google.com -o /dev/null -w \"Google: %{http_code}\\\\n\")",
+      "WebSearch",
+      "Bash(git *)",
+      "Bash(claude doctor *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(claude *)"
+    ]
+  }
+}

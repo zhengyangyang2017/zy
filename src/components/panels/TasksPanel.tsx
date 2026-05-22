@@ -71,12 +71,14 @@ export function TasksPanel() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all')
 
   const refresh = useCallback(async () => {
-    const [taskList, knowledgeStats] = await Promise.all([
-      window.api.listTasks(),
-      window.api.getKnowledgeStats(),
-    ])
-    setTasks(taskList as TaskItem[])
-    setStats(knowledgeStats as KnowledgeStats)
+    try {
+      const [taskList, knowledgeStats] = await Promise.all([
+        window.api.listTasks(),
+        window.api.getKnowledgeStats(),
+      ])
+      setTasks((taskList || []) as TaskItem[])
+      setStats((knowledgeStats || { nodeCount: 0, edgeCount: 0 }) as KnowledgeStats)
+    } catch { /* panel may not be visible yet */ }
   }, [])
 
   useEffect(() => {

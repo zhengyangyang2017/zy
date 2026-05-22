@@ -71,7 +71,10 @@ function DirNode({
     if (expanded && !loaded) {
       setLoading(true)
       window.api.listDirectory(path).then((items) => {
-        setEntries(items)
+        setEntries(items || [])
+        setLoaded(true)
+        setLoading(false)
+      }).catch(() => {
         setLoaded(true)
         setLoading(false)
       })
@@ -149,7 +152,7 @@ function FilePreview({ filePath }: { filePath: string | null }) {
     setLoading(true)
     setError(null)
     window.api.readFileContent(filePath).then((result) => {
-      if (result.error) {
+      if (!result || result.error) {
         setError(result.error)
         setContent(null)
       } else {
@@ -202,12 +205,12 @@ export function FilesPanel() {
 
   useEffect(() => {
     window.api.getProjectRoot().then((root) => {
-      setProjectRoot(root)
-      window.api.listDirectory(root).then((items) => {
-        setRootEntries(items)
+      setProjectRoot(root || '')
+      window.api.listDirectory(root || '').then((items) => {
+        setRootEntries(items || [])
         setLoaded(true)
-      })
-    })
+      }).catch(() => setLoaded(true))
+    }).catch(() => setLoaded(true))
   }, [])
 
   const filteredEntries = useMemo(() => {

@@ -1,16 +1,24 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import { MessageBubble } from './MessageBubble'
 import type { Message } from '../../types'
 
+const EMPTY_MSGS: Message[] = []
+
 export function ChatView() {
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
-  const messages = useChatStore((s) =>
-    activeSessionId ? (s.messagesBySession[activeSessionId] ?? []) : []
+
+  const messagesBySession = useChatStore((s) => s.messagesBySession)
+  const streamingTextBySession = useChatStore((s) => s.streamingText)
+
+  const messages = useMemo(() =>
+    activeSessionId ? (messagesBySession[activeSessionId] ?? EMPTY_MSGS) : EMPTY_MSGS,
+    [activeSessionId, messagesBySession]
   )
-  const streamingText = useChatStore((s) =>
-    activeSessionId ? (s.streamingText[activeSessionId] ?? '') : ''
+  const streamingText = useMemo(() =>
+    activeSessionId ? (streamingTextBySession[activeSessionId] ?? '') : '',
+    [activeSessionId, streamingTextBySession]
   )
   const bottomRef = useRef<HTMLDivElement>(null)
 

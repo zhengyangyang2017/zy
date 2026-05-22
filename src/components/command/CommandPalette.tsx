@@ -15,14 +15,18 @@ export function CommandPalette() {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { toggleSidebar, toggleRightPanel, setRightPanelTab, toggleBottomPanel } = usePanelStore()
+  const { toggleSidebar, toggleRightPanelTab, toggleBottomPanel } = usePanelStore()
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
 
+  const isMac = navigator.platform.toLowerCase().includes('mac')
+  const mod = isMac ? '⌘' : 'Ctrl+'
+  const shift = isMac ? '⇧' : 'Shift+'
+
   const commands: Command[] = [
-    { id: 'sidebar', label: '切换侧边栏', shortcut: '⌘B', action: toggleSidebar },
-    { id: 'files', label: '文件浏览器', shortcut: '⌘⇧E', action: () => { setRightPanelTab('files'); toggleRightPanel() } },
-    { id: 'tasks', label: '任务面板', shortcut: '⌘⇧T', action: () => { setRightPanelTab('tasks'); toggleRightPanel() } },
-    { id: 'terminal', label: '终端', shortcut: '⌘`', action: toggleBottomPanel },
+    { id: 'sidebar', label: '切换侧边栏', shortcut: `${mod}B`, action: toggleSidebar },
+    { id: 'files', label: '文件浏览器', shortcut: `${mod}${shift}E`, action: () => toggleRightPanelTab('files') },
+    { id: 'tasks', label: '任务面板', shortcut: `${mod}${shift}T`, action: () => toggleRightPanelTab('tasks') },
+    { id: 'terminal', label: '终端', shortcut: `${mod}\``, action: toggleBottomPanel },
     { id: 'theme', label: '切换主题', action: toggleTheme }
   ]
 

@@ -88,7 +88,7 @@ export function BottomPanel() {
 
   // Initialize: get cwd
   useEffect(() => {
-    window.api.getProjectRoot().then(setCwd)
+    window.api.getProjectRoot().then(setCwd).catch(() => {})
   }, [])
 
   // Auto-scroll to bottom
@@ -106,9 +106,9 @@ export function BottomPanel() {
 
     try {
       const result = await window.api.executeShellCommand(cmd)
-      const display = result.error
+      const display = (result && result.error)
         ? `\x1b[31m${result.error}\x1b[0m\n`
-        : result.output
+        : (result?.output || '')
       setOutput(prev => [...prev, display])
     } catch {
       setOutput(prev => [...prev, '\x1b[31mFailed to execute command\x1b[0m\n'])

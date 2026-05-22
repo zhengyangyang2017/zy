@@ -83,12 +83,14 @@ export function GitPanel() {
 
   const refresh = useCallback(async () => {
     setRefreshing(true)
-    const [s, l] = await Promise.all([
-      window.api.gitStatus() as Promise<GitStatus>,
-      window.api.gitLog() as Promise<GitLog>,
-    ])
-    setStatus(s)
-    setLog(l)
+    try {
+      const [s, l] = await Promise.all([
+        window.api.gitStatus() as Promise<GitStatus>,
+        window.api.gitLog() as Promise<GitLog>,
+      ])
+      setStatus(s)
+      setLog(l)
+    } catch { /* git may not be available */ }
     setRefreshing(false)
   }, [])
 
