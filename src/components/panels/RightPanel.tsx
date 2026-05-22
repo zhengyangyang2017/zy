@@ -1,4 +1,7 @@
 import { usePanelStore } from '../../stores/panelStore'
+import { FilesPanel } from './FilesPanel'
+import { TasksPanel } from './TasksPanel'
+import { GitPanel } from './GitPanel'
 
 const TABS = [
   { key: 'files' as const, label: '📁 文件' },
@@ -27,12 +30,10 @@ export function RightPanel() {
           </button>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto p-3">
-        <p className="text-xs text-text-muted text-center mt-8">
-          {rightPanelTab === 'files' && '文件浏览器 (Phase 2)'}
-          {rightPanelTab === 'tasks' && '任务面板 (Phase 3)'}
-          {rightPanelTab === 'git' && 'Git 面板 (Phase 3)'}
-        </p>
+      <div className="flex-1 overflow-hidden">
+        {rightPanelTab === 'files' && <FilesPanel />}
+        {rightPanelTab === 'tasks' && <TasksPanel />}
+        {rightPanelTab === 'git' && <GitPanel />}
       </div>
     </div>
   )
