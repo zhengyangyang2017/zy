@@ -47,27 +47,103 @@ Download the latest installer from [GitHub Releases](https://github.com/user/cla
 
 ### Build from Source
 
+#### 前提条件
+
+| 工具 | 版本 | 说明 |
+|------|------|------|
+| **Node.js** | 20.x 或更高 | [下载](https://nodejs.org/) |
+| **npm** | 10.x（自带） | 安装 Node.js 时自动安装 |
+| **Git** | 任意版本 | [下载](https://git-scm.com/) |
+
+**Windows 额外要求**（`better-sqlite3` 需要编译原生模块）：
 ```bash
-# Prerequisites: Node.js 20+, npm
-git clone https://github.com/user/claude-code-gui.git
-cd claude-code-gui
-npm install
-npm run dev      # Development
-npm run build    # Production build
-npm run dist     # Package for current platform
+# 方式一：安装 VS Build Tools（推荐）
+# 下载：https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022
+# 安装时勾选 "Desktop development with C++"
+
+# 方式二：用管理员终端运行（简单但较大）
+npm install --global windows-build-tools
 ```
 
-### Configuration
+**macOS 额外要求**：
+```bash
+# Xcode Command Line Tools（better-sqlite3 编译需要）
+xcode-select --install
+```
 
-Copy `.env.example` to `.env` and configure:
+**Linux 额外要求**：
+```bash
+# Debian/Ubuntu
+sudo apt install build-essential python3
 
-```env
-VITE_ANTHROPIC_API_KEY=your-api-key
+# Fedora
+sudo dnf install gcc-c++ python3
+
+# Arch
+sudo pacman -S base-devel python
+```
+
+#### 安装
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/zhengyangyang2017/zy.git
+cd zy
+
+# 2. 安装依赖（首次可能需要 2-5 分钟）
+npm install
+
+# 如果 better-sqlite3 编译失败，尝试：
+npm rebuild better-sqlite3
+```
+
+#### 配置 API Key
+
+**方式一：环境变量（推荐）**
+
+```bash
+# 复制配置模板
+cp .env.example .env
+
+# 编辑 .env 文件，填入你的 API Key
+# 支持以下任一提供商：
+
+# DeepSeek（默认）
+VITE_ANTHROPIC_API_KEY=sk-your-deepseek-key
 VITE_API_BASE_URL=https://api.deepseek.com
 VITE_MODEL_NAME=deepseek-v4-pro
+
+# OpenAI
+VITE_ANTHROPIC_API_KEY=sk-your-openai-key
+VITE_API_BASE_URL=https://api.openai.com
+VITE_MODEL_NAME=gpt-4o
+
+# Anthropic
+VITE_ANTHROPIC_API_KEY=sk-ant-your-anthropic-key
+# 不需设置 BASE_URL 和 MODEL_NAME，自动识别
 ```
 
-Or use the Settings panel (`Ctrl+,`) to configure at runtime.
+**方式二：应用内设置**
+
+启动后用 `Ctrl+,` 打开设置面板，填入 API Key 并保存。
+
+#### 启动
+
+```bash
+npm run dev        # 开发模式（热更新）
+npm run build      # 生产构建
+npm test           # 运行测试
+```
+
+#### 常见问题
+
+| 问题 | 解决 |
+|------|------|
+| `better-sqlite3` 编译失败 | 检查是否安装了 C++ 编译工具（见上方"前提条件"） |
+| 启动后显示"API key 未配置" | 检查 `.env` 文件是否在项目根目录，Key 是否正确 |
+| `@xenova/transformers` 下载模型失败 | 首次启动会自动下载约 80MB 嵌入模型，需要网络。失败不影响基本聊天功能 |
+| 聊天回复很慢 | 正常，取决于 API 提供商响应速度 |
+| Windows 白屏 | 尝试 `npm run build && npm run preview` |
 
 ## Architecture
 
