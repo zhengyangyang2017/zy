@@ -161,7 +161,7 @@ export function BottomPanel() {
       >
         {output.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-text-muted">Terminal — type a command below</p>
+            <p className="text-text-muted">输入命令开始</p>
           </div>
         ) : (
           output.map((chunk, i) => (

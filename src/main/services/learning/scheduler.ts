@@ -9,6 +9,7 @@ import { getDb, type LearningTaskRow } from '../../db'
 import { researchTopic } from './research-agent'
 import { applyDecayToAll, getLowConfidenceNodes, deleteNode } from './knowledge-graph'
 import { runEvolutionCycle } from './evolution-agent'
+import { logger } from '../logger'
 
 let schedulerInterval: ReturnType<typeof setInterval> | null = null
 let evolutionInterval: ReturnType<typeof setInterval> | null = null
@@ -27,7 +28,7 @@ let lastPruneTime = Date.now()
 export function startScheduler(): void {
   if (schedulerInterval) return
 
-  console.log('[Scheduler] Starting background scheduler')
+  logger.info('Scheduler', 'Starting background scheduler')
 
   schedulerInterval = setInterval(async () => {
     if (isProcessing) return
@@ -37,7 +38,7 @@ export function startScheduler(): void {
       await processNextTask()
       await periodicPrune()
     } catch (err) {
-      console.error('[Scheduler] Error:', err)
+      logger.error('Scheduler', 'Error:', err)
     } finally {
       isProcessing = false
     }
@@ -47,7 +48,7 @@ export function startScheduler(): void {
   setTimeout(() => {
     if (!isProcessing) {
       isProcessing = true
-      processNextTask().catch(err => console.error('[Scheduler] Initial run error:', err))
+      processNextTask().catch(err => logger.error('Scheduler', 'Initial run error:', err))
         .finally(() => { isProcessing = false })
     }
   }, 10000)
@@ -56,9 +57,9 @@ export function startScheduler(): void {
   evolutionInterval = setInterval(async () => {
     try {
       const count = await runEvolutionCycle()
-      if (count > 0) console.log(`[Scheduler] Evolution cycle generated ${count} strategies`)
+      if (count > 0) logger.info('Scheduler', `Evolution cycle generated ${count} strategies`)
     } catch (err) {
-      console.error('[Scheduler] Evolution cycle error:', err)
+      logger.error('Scheduler', 'Evolution cycle error:', err)
     }
   }, EVOLUTION_INTERVAL_MS)
 }
@@ -75,7 +76,7 @@ export function stopScheduler(): void {
     clearInterval(evolutionInterval)
     evolutionInterval = null
   }
-  console.log('[Scheduler] Stopped')
+  logger.debug('Scheduler', 'Stopped')
 }
 
 /**
@@ -102,12 +103,12 @@ async function processNextTask(): Promise<void> {
   db.prepare("UPDATE learning_tasks SET status = 'researching', started_at = ? WHERE id = ?")
     .run(now, task.id)
 
-  console.log(`[Scheduler] Processing task: "${task.topic}" priority=${task.priority}`)
+  logger.debug('Scheduler', `Processing task: "${task.topic}" priority=${task.priority}`)
 
   try {
     await researchTopic(task.topic, task.depth, task.max_sources)
   } catch (err) {
-    console.error(`[Scheduler] Task failed: "${task.topic}"`, err)
+    logger.error('Scheduler', `Task failed: "${task.topic}"`, err)
     db.prepare("UPDATE learning_tasks SET status = 'failed', completed_at = ? WHERE id = ?")
       .run(now, task.id)
   }
@@ -121,7 +122,7 @@ async function periodicPrune(): Promise<void> {
   if (now - lastPruneTime < PRUNE_INTERVAL_MS) return
   lastPruneTime = now
 
-  console.log('[Scheduler] Running periodic prune')
+  logger.debug('Scheduler', 'Running periodic prune')
 
   try {
     // Apply memory decay to all nodes
@@ -139,9 +140,9 @@ async function periodicPrune(): Promise<void> {
         }
       }
     }
-    if (pruned > 0) console.log(`[Scheduler] Pruned ${pruned} stale nodes`)
+    if (pruned > 0) logger.info('Scheduler', `Pruned ${pruned} stale nodes`)
   } catch (err) {
-    console.error('[Scheduler] Prune error:', err)
+    logger.error('Scheduler', 'Prune error:', err)
   }
 }
 

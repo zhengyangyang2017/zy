@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { InlineSpinner } from '../ui/Spinner'
 
 // ============================================
 // Types
@@ -66,6 +67,7 @@ function DirNode({
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (expanded && !loaded) {
@@ -74,7 +76,9 @@ function DirNode({
         setEntries(items || [])
         setLoaded(true)
         setLoading(false)
-      }).catch(() => {
+      }).catch((err) => {
+        console.error(`[FilesPanel] Failed to list "${path}":`, err)
+        setError(`无法读取目录: ${name}`)
         setLoaded(true)
         setLoading(false)
       })
@@ -124,8 +128,13 @@ function DirNode({
             )
           )}
           {loading && (
-            <p className="text-xs text-text-muted px-2" style={{ paddingLeft: `${8 + (depth + 1) * 12}px` }}>
-              Loading...
+            <p className="text-xs text-text-muted px-2 flex items-center gap-1" style={{ paddingLeft: `${8 + (depth + 1) * 12}px` }}>
+              <InlineSpinner /> 加载中...
+            </p>
+          )}
+          {error && (
+            <p className="text-xs text-error px-2" style={{ paddingLeft: `${8 + (depth + 1) * 12}px` }}>
+              {error}
             </p>
           )}
         </div>
@@ -170,11 +179,14 @@ function FilePreview({ filePath }: { filePath: string | null }) {
   return (
     <div className="flex flex-col h-full">
       <div className="text-xs text-text-muted px-2 py-1 border-b border-hover truncate flex-shrink-0">
-        {fileName ? `📄 ${fileName}` : 'No file selected'}
+        {fileName ? `📄 ${fileName}` : '未选择文件'}
       </div>
       <div className="flex-1 overflow-y-auto select-text">
         {loading ? (
-          <p className="text-xs text-text-muted p-2">Loading...</p>
+          <div className="flex items-center gap-1.5 p-2">
+            <InlineSpinner />
+            <span className="text-xs text-text-muted">加载中...</span>
+          </div>
         ) : error ? (
           <p className="text-xs text-error p-2">{error}</p>
         ) : content !== null ? (
@@ -183,7 +195,7 @@ function FilePreview({ filePath }: { filePath: string | null }) {
           </pre>
         ) : (
           <p className="text-xs text-text-muted p-2 text-center mt-8">
-            Select a file to preview its content
+            选择文件以预览内容
           </p>
         )}
       </div>
@@ -202,6 +214,7 @@ export function FilesPanel() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [viewMode, setViewMode] = useState<'tree' | 'preview'>('tree')
+  const [panelError, setPanelError] = useState<string | null>(null)
 
   useEffect(() => {
     window.api.getProjectRoot().then((root) => {
@@ -209,8 +222,16 @@ export function FilesPanel() {
       window.api.listDirectory(root || '').then((items) => {
         setRootEntries(items || [])
         setLoaded(true)
-      }).catch(() => setLoaded(true))
-    }).catch(() => setLoaded(true))
+      }).catch((err) => {
+        console.error('[FilesPanel] Failed to list project root:', err)
+        setPanelError('无法加载文件列表')
+        setLoaded(true)
+      })
+    }).catch((err) => {
+      console.error('[FilesPanel] Failed to get project root:', err)
+      setPanelError('无法获取项目路径')
+      setLoaded(true)
+    })
   }, [])
 
   const filteredEntries = useMemo(() => {
@@ -263,7 +284,12 @@ export function FilesPanel() {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {!loaded ? (
-          <p className="text-xs text-text-muted p-2">Loading...</p>
+          <div className="flex items-center gap-1.5 p-2">
+            <InlineSpinner />
+            <span className="text-xs text-text-muted">加载中...</span>
+          </div>
+        ) : panelError ? (
+          <p className="text-xs text-error p-2">{panelError}</p>
         ) : viewMode === 'preview' ? (
           <FilePreview filePath={selectedFile} />
         ) : (
@@ -296,7 +322,7 @@ export function FilesPanel() {
               )
             )}
             {filteredEntries.length === 0 && (
-              <p className="text-xs text-text-muted p-2 text-center">No files found</p>
+              <p className="text-xs text-text-muted p-2 text-center">未找到文件</p>
             )}
           </div>
         )}

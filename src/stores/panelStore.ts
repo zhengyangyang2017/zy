@@ -3,9 +3,13 @@ import { persist } from 'zustand/middleware'
 import type { PanelLayout, PanelTab } from '../types'
 
 interface PanelState extends PanelLayout {
+  settingsOpen: boolean
+  feedbackOpen: boolean
   toggleSidebar: () => void
   toggleRightPanel: () => void
   toggleBottomPanel: () => void
+  toggleSettings: () => void
+  toggleFeedback: () => void
   setRightPanelTab: (tab: PanelTab) => void
   toggleRightPanelTab: (tab: PanelTab) => void
   setSidebarWidth: (w: number) => void
@@ -23,10 +27,14 @@ export const usePanelStore = create<PanelState>()(
       rightPanelTab: 'files',
       bottomPanelOpen: false,
       bottomPanelHeight: 200,
+      settingsOpen: false,
+      feedbackOpen: false,
 
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
       toggleBottomPanel: () => set((s) => ({ bottomPanelOpen: !s.bottomPanelOpen })),
+      toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
+      toggleFeedback: () => set((s) => ({ feedbackOpen: !s.feedbackOpen })),
       setRightPanelTab: (tab) => set({ rightPanelOpen: true, rightPanelTab: tab }),
       toggleRightPanelTab: (tab) => set((s) => ({
         rightPanelOpen: s.rightPanelOpen && s.rightPanelTab === tab ? false : true,

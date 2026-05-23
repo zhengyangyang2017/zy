@@ -18,6 +18,9 @@ const api = {
   deleteSession: (id: string) =>
     ipcRenderer.invoke('session:delete', id),
 
+  renameSession: (id: string, title: string) =>
+    ipcRenderer.invoke('session:rename', id, title),
+
   getMessages: (sessionId: string) =>
     ipcRenderer.invoke('session:messages', sessionId),
 
@@ -93,7 +96,44 @@ const api = {
 
   // Terminal
   executeShellCommand: (cmd: string) =>
-    ipcRenderer.invoke('terminal:exec', cmd)
+    ipcRenderer.invoke('terminal:exec', cmd),
+
+  // Agent Cluster
+  getClusterState: () =>
+    ipcRenderer.invoke('cluster:state'),
+
+  submitClusterGoal: (goal: string, context?: string) =>
+    ipcRenderer.invoke('cluster:submitGoal', goal, context),
+
+  onClusterEvent: (callback: (data: { type: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { type: string }) => callback(data)
+    ipcRenderer.on('cluster:event', handler)
+    return () => ipcRenderer.removeListener('cluster:event', handler)
+  },
+
+  onClusterResult: (callback: (data: { taskType?: string; taskId: string; output?: string; error?: string; success: boolean }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: any) => callback(data)
+    ipcRenderer.on('chat:cluster-result', handler)
+    return () => ipcRenderer.removeListener('chat:cluster-result', handler)
+  },
+
+  // Search
+  searchMessages: (query: string) =>
+    ipcRenderer.invoke('messages:search', query),
+
+  // Export
+  exportSession: (sessionId: string, format: string) =>
+    ipcRenderer.invoke('export:session', sessionId, format),
+
+  exportKnowledge: () =>
+    ipcRenderer.invoke('export:knowledge'),
+
+  // Settings
+  loadConfig: () =>
+    ipcRenderer.invoke('config:load'),
+
+  saveConfig: (updates: Record<string, unknown>) =>
+    ipcRenderer.invoke('config:save', updates),
 }
 
 contextBridge.exposeInMainWorld('api', api)

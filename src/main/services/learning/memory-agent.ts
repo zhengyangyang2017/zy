@@ -12,6 +12,7 @@
 
 import https from 'https'
 import { IncomingMessage } from 'http'
+import { getDb } from '../../db'
 import { createNode, createEdge, getNode, getLSHCandidates, reinforceMemory, applyDecayToAll } from './knowledge-graph'
 import { embed, cosineSimilarity } from './embeddings'
 import { getNodeVector } from './knowledge-graph'
@@ -200,7 +201,6 @@ async function buildEdgesForNewNodes(titles: string[]): Promise<void> {
 }
 
 function getNodeByTitle(title: string): { id: string } | undefined {
-  const { getDb } = require('../../db')
   const db = getDb()
   return db.prepare('SELECT id FROM knowledge_nodes WHERE title = ?').get(title) as { id: string } | undefined
 }

@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import type { Message } from '../../types'
 import { Marked } from 'marked'
 import { CodeBlock } from './CodeBlock'
+import { StreamingDot } from './ThinkingIndicator'
 
 const marked = new Marked()
 
@@ -51,9 +52,28 @@ function RenderedMarkdown({ content }: { content: string }) {
   )
 }
 
-export function MessageBubble({ message }: Props) {
+export const MessageBubble = memo(function MessageBubble({ message }: Props) {
   const isUser = message.role === 'user'
+  const isSystem = message.role === 'system'
+  const isStreaming = message.id === 'streaming'
   const parts = parseContent(message.content || '')
+
+  // System messages: centered, compact, subtle
+  if (isSystem) {
+    return (
+      <div className="flex justify-center mb-3">
+        <div className="max-w-[85%] rounded-xl px-4 py-2 text-xs message-content bg-active/50 border border-hover text-text-secondary">
+          {parts.map((part, i) =>
+            part.type === 'code' ? (
+              <CodeBlock key={i} language={part.language} code={part.content} />
+            ) : (
+              <RenderedMarkdown key={i} content={part.content} />
+            )
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`flex gap-3 mb-4 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -62,7 +82,12 @@ export function MessageBubble({ message }: Props) {
           isUser ? 'bg-gray-600 text-gray-300' : 'bg-primary text-white'
         }`}
       >
-        {isUser ? 'Y' : '🤖'}
+        {isUser ? 'Y' : isStreaming ? (
+          <span className="relative">
+            🤖
+            <span className="absolute inset-0 rounded-full bg-primary animate-ping opacity-30" />
+          </span>
+        ) : '🤖'}
       </div>
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm message-content ${
@@ -72,17 +97,20 @@ export function MessageBubble({ message }: Props) {
         }`}
       >
         {parts.length > 0 ? (
-          parts.map((part, i) =>
-            part.type === 'code' ? (
-              <CodeBlock key={i} language={part.language} code={part.content} />
-            ) : (
-              <RenderedMarkdown key={i} content={part.content} />
-            )
-          )
+          <>
+            {parts.map((part, i) =>
+              part.type === 'code' ? (
+                <CodeBlock key={i} language={part.language} code={part.content} />
+              ) : (
+                <RenderedMarkdown key={i} content={part.content} />
+              )
+            )}
+            {isStreaming && <StreamingDot />}
+          </>
         ) : (
           <span className="text-text-muted italic">Thinking...</span>
         )}
       </div>
     </div>
   )
-}
+})

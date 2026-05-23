@@ -11,6 +11,7 @@
 import { getDb, type KnowledgeNodeRow } from '../../db'
 import { embed, embedCache, cosineSimilarity, getEmbeddingDimension } from './embeddings'
 import { getLSHCandidates } from './knowledge-graph'
+import { cachedSimilaritySearch, invalidateVectorCache } from './vector-cache'
 
 const FTS_WEIGHT = 0.3
 const VECTOR_WEIGHT = 0.7
@@ -150,32 +151,27 @@ function ftsSearch(db: ReturnType<typeof getDb>, query: string, limit: number): 
 // ============================================
 
 async function vectorSearch(
-  db: ReturnType<typeof getDb>,
+  _db: ReturnType<typeof getDb>,
   queryVector: Float32Array,
   queryText: string,
   limit: number
 ): Promise<Map<string, number>> {
   const results = new Map<string, number>()
 
-  // Use LSH to pre-filter candidates
+  // LSH pre-filter for fast candidate narrowing
   const candidates = getLSHCandidates(queryText)
 
-  // Get all vectors
-  const vectorRows = db.prepare('SELECT node_id, vector FROM knowledge_vectors').all() as { node_id: string; vector: Buffer }[]
+  // Use in-memory cached vectors instead of full table scan
+  // Falls back to full scan only when cache is cold (first query)
+  const scored = cachedSimilaritySearch(
+    queryVector,
+    candidates,
+    limit,
+    0.15,   // min similarity threshold
+    0.05,   // min importance (skip completely irrelevant nodes)
+  )
 
-  const scored: { nodeId: string; score: number }[] = []
-  for (const row of vectorRows) {
-    // LSH pre-filter: if we have candidates and this node isn't one, skip
-    if (candidates.size > 0 && !candidates.has(row.node_id)) continue
-
-    const vec = new Float32Array(row.vector.buffer, row.vector.byteOffset, row.vector.byteLength / 4)
-    const similarity = cosineSimilarity(queryVector, vec)
-    scored.push({ nodeId: row.node_id, score: similarity })
-  }
-
-  // Sort by similarity descending, take top
-  scored.sort((a, b) => b.score - a.score)
-  for (const s of scored.slice(0, limit)) {
+  for (const s of scored) {
     results.set(s.nodeId, s.score)
   }
 

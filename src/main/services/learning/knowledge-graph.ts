@@ -8,6 +8,7 @@
 import { uuid } from './uuid'
 import { getDb, type KnowledgeNodeRow, type KnowledgeEdgeRow } from '../../db'
 import { encodeVector, decodeVector, cosineSimilarity } from './embeddings'
+import { invalidateVectorCache } from './vector-cache'
 import { computeLSHKeys, LSHIndex } from './lsh'
 
 // ============================================
@@ -81,6 +82,8 @@ export function createNode(input: CreateNodeInput, vector?: Float32Array): strin
       INSERT INTO knowledge_vectors (node_id, vector, model, dimension, created_at)
       VALUES (?, ?, ?, ?, ?)
     `).run(id, encodeVector(vector), 'all-MiniLM-L6-v2', vector.length, now)
+    // Invalidate in-memory vector cache so next query picks up new node
+    invalidateVectorCache()
   }
 
   // Insert memory strength

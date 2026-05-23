@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { InlineSpinner } from '../ui/Spinner'
 
 // ============================================
 // Types
@@ -133,7 +134,7 @@ export function TasksPanel() {
           disabled={!newTopic.trim() || loading}
           className="text-xs bg-primary text-white rounded px-2 py-1 hover:opacity-90 disabled:opacity-30 transition-opacity"
         >
-          {loading ? '...' : '+'}
+          {loading ? <InlineSpinner /> : '+'}
         </button>
       </div>
 

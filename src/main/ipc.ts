@@ -1,12 +1,16 @@
 import { ipcMain, clipboard, dialog, BrowserWindow } from 'electron'
 import { readFile, readdir, stat as fsStat, open as fsOpen } from 'fs/promises'
-import { basename, join, relative } from 'path'
+import { basename, join } from 'path'
 import { registerChatIpc } from './services/anthropic'
 import { getDb } from './db'
 import type { SessionRow, MessageRow } from './db'
 import { getKnowledgeStats, startResearch } from './services/learning/orchestrator'
 import { enqueueTask, getTasks } from './services/learning/scheduler'
 import { execSync, exec } from 'child_process'
+import { getOrchestrator } from './services/cluster'
+import { getEventBus } from './services/cluster/event-bus'
+import { loadConfig, saveConfig } from './services/config'
+import type { AppConfig, ClusterTaskSubmitParams, ClusterResultPayload, ExportResult } from '../types/ipc'
 
 export function registerIpcHandlers(): void {
   registerChatIpc()
@@ -39,6 +43,13 @@ export function registerIpcHandlers(): void {
       'INSERT INTO sessions (id, title, created_at, updated_at, message_count, status) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(session.id, session.title, session.created_at, session.updated_at, session.message_count, session.status)
     return rowToSession(session)
+  })
+
+  ipcMain.handle('session:rename', async (_e, id: string, title: string) => {
+    const db = getDb()
+    db.prepare('UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?')
+      .run(title, new Date().toISOString(), id)
+    return true
   })
 
   ipcMain.handle('session:delete', async (_e, id: string) => {
@@ -267,6 +278,183 @@ export function registerIpcHandlers(): void {
         }
       })
     })
+  })
+
+  // === Agent Cluster ===
+  ipcMain.handle('cluster:state', async () => {
+    const orch = getOrchestrator()
+    const state = orch.getState()
+    return {
+      ...state,
+      agents: [...state.agents.entries()].map(([agentId, info]) => ({ agentId, ...info })),
+    }
+  })
+
+  ipcMain.handle('cluster:agents', async () => {
+    return getOrchestrator().getAgentList()
+  })
+
+  ipcMain.handle('cluster:queue', async () => {
+    return getOrchestrator().getQueueStats()
+  })
+
+  ipcMain.handle('cluster:events', async (_e, topic: string) => {
+    return getOrchestrator().getEvents(topic, 50)
+  })
+
+  ipcMain.handle('cluster:submitGoal', async (_e, goal: string, context?: string) => {
+    return getOrchestrator().submitGoal(goal, context)
+  })
+
+  ipcMain.handle('cluster:submitTask', async (_e, params: ClusterTaskSubmitParams) => {
+    return getOrchestrator().submitTask(params.type, params.role, params.input, params.priority)
+  })
+
+  ipcMain.handle('cluster:isRunning', async () => {
+    return getOrchestrator().isRunning
+  })
+
+  // Forward cluster events to renderer for real-time UI updates
+  try {
+    const bus = getEventBus()
+    bus.subscribe('task:completed', (event) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('cluster:event', { type: 'task-update' })
+        const payload = event.payload as { task?: { type?: string; id?: string }; result?: { output?: string } } | undefined
+        if (payload?.task?.type && payload?.result?.output) {
+          const result: ClusterResultPayload = {
+            taskType: payload.task.type,
+            taskId: payload.task.id || '',
+            output: payload.result.output.slice(0, 2000),
+            success: true,
+          }
+          win.webContents.send('chat:cluster-result', result)
+        }
+      }
+    })
+    bus.subscribe('task:failed', (event) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('cluster:event', { type: 'task-update' })
+        const payload = event.payload as { taskId?: string; error?: string } | undefined
+        if (payload?.taskId) {
+          const result: ClusterResultPayload = {
+            taskId: payload.taskId,
+            error: payload.error || 'Unknown error',
+            success: false,
+          }
+          win.webContents.send('chat:cluster-result', result)
+        }
+      }
+    })
+    bus.subscribe('agent:heartbeat', () => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('cluster:event', { type: 'agent-update' })
+      }
+    })
+    bus.subscribe('workflow:created', () => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send('cluster:event', { type: 'workflow-update' })
+      }
+    })
+  } catch { /* event forwarding is best-effort */ }
+
+  // === Message Search ===
+  ipcMain.handle('messages:search', async (_e, query: string) => {
+    const db = getDb()
+    const rows = db.prepare(`
+      SELECT m.*, s.title as session_title
+      FROM messages m
+      JOIN sessions s ON m.session_id = s.id
+      WHERE m.content LIKE ?
+      ORDER BY m.created_at DESC
+      LIMIT 50
+    `).all(`%${query}%`) as (MessageRow & { session_title: string })[]
+    return rows.map(r => ({
+      id: r.id,
+      sessionId: r.session_id,
+      sessionTitle: r.session_title,
+      role: r.role,
+      content: r.content.slice(0, 300),
+      createdAt: r.created_at,
+    }))
+  })
+
+  // === Export ===
+  ipcMain.handle('export:session', async (event, sessionId: string, format: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { success: false, error: 'No window' }
+
+    const db = getDb()
+    const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as SessionRow | undefined
+    if (!session) return { success: false, error: 'Session not found' }
+
+    const messages = db.prepare(
+      'SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC'
+    ).all(sessionId) as MessageRow[]
+
+    const ext = format === 'md' ? 'md' : 'json'
+    const result = await dialog.showSaveDialog(win, {
+      title: '导出会话',
+      defaultPath: `${session.title.replace(/[\\/:*?"<>|]/g, '_')}.${ext}`,
+      filters: [
+        format === 'md'
+          ? { name: 'Markdown', extensions: ['md'] }
+          : { name: 'JSON', extensions: ['json'] },
+      ],
+    })
+
+    if (result.canceled || !result.filePath) return { success: false, error: 'Cancelled' }
+
+    try {
+      let content: string
+      if (format === 'md') {
+        content = `# ${session.title}\n\n创建: ${session.created_at}\n消息数: ${session.message_count}\n\n---\n\n`
+        content += messages.map(m =>
+          `### ${m.role === 'user' ? '👤 用户' : '🤖 AI'} — ${m.created_at}\n\n${m.content}\n`
+        ).join('\n\n---\n\n')
+      } else {
+        content = JSON.stringify({ session, messages }, null, 2)
+      }
+      const { writeFileSync } = await import('fs')
+      writeFileSync(result.filePath, content, 'utf-8')
+      return { success: true, path: result.filePath }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  ipcMain.handle('export:knowledge', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { success: false, error: 'No window' }
+
+    const result = await dialog.showSaveDialog(win, {
+      title: '导出知识图谱',
+      defaultPath: 'knowledge-graph.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    })
+
+    if (result.canceled || !result.filePath) return { success: false, error: 'Cancelled' }
+
+    try {
+      const db = getDb()
+      const nodes = db.prepare('SELECT * FROM knowledge_nodes ORDER BY created_at DESC').all()
+      const edges = db.prepare('SELECT * FROM knowledge_edges ORDER BY created_at DESC').all()
+      const content = JSON.stringify({ nodes, edges, exportedAt: new Date().toISOString() }, null, 2)
+      const { writeFileSync } = await import('fs')
+      writeFileSync(result.filePath, content, 'utf-8')
+      return { success: true, path: result.filePath }
+    } catch (err) {
+      return { success: false, error: String(err) }
+    }
+  })
+
+  // === Settings ===
+  ipcMain.handle('config:load', async () => {
+    return loadConfig()
+  })
+
+  ipcMain.handle('config:save', async (_e, updates: Record<string, unknown>) => {
+    return saveConfig(updates as Partial<AppConfig>)
   })
 }
 

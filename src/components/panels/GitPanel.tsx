@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { InlineSpinner } from '../ui/Spinner'
 
 // ============================================
 // Types
@@ -44,7 +45,11 @@ function DiffViewer({ file, onClose }: { file: string; onClose: () => void }) {
 
   useEffect(() => {
     window.api.gitDiff(file).then((result: { diff: string; error: string | null }) => {
-      setDiff(result.error ? `Error: ${result.error}` : result.diff)
+      setDiff(result.error ? `错误: ${result.error}` : result.diff)
+      setLoading(false)
+    }).catch((err) => {
+      console.error(`[GitPanel] Failed to get diff for "${file}":`, err)
+      setDiff('无法加载 diff')
       setLoading(false)
     })
   }, [file])
@@ -59,10 +64,13 @@ function DiffViewer({ file, onClose }: { file: string; onClose: () => void }) {
       </div>
       <div className="flex-1 overflow-y-auto select-text">
         {loading ? (
-          <p className="text-xs text-text-muted p-2">Loading diff...</p>
+          <div className="flex items-center gap-1.5 p-2">
+            <InlineSpinner />
+            <span className="text-xs text-text-muted">加载 diff...</span>
+          </div>
         ) : (
           <pre className="text-xs p-2 font-mono whitespace-pre-wrap text-text-primary">
-            {diff || 'No changes'}
+            {diff || '无变更'}
           </pre>
         )}
       </div>
@@ -90,7 +98,9 @@ export function GitPanel() {
       ])
       setStatus(s)
       setLog(l)
-    } catch { /* git may not be available */ }
+    } catch (err) {
+      console.error('[GitPanel] Failed to refresh git status:', err)
+    }
     setRefreshing(false)
   }, [])
 
@@ -124,7 +134,7 @@ export function GitPanel() {
             🔀 <span className="text-primary font-medium">{status.branch}</span>
           </span>
         ) : (
-          <span className="text-xs text-text-muted">No repo</span>
+          <span className="text-xs text-text-muted">无仓库</span>
         )}
         <button
           onClick={refresh}
@@ -144,7 +154,7 @@ export function GitPanel() {
         ) : isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <p className="text-2xl">✅</p>
-            <p className="text-xs text-text-muted">Working tree clean</p>
+            <p className="text-xs text-text-muted">工作区干净</p>
           </div>
         ) : (
           <>

@@ -29,7 +29,7 @@ export interface StreamState {
   abortController: AbortController | null
 }
 
-export type PanelTab = 'files' | 'tasks' | 'git'
+export type PanelTab = 'files' | 'tasks' | 'git' | 'cluster'
 
 export type Theme = 'dark' | 'light'
 

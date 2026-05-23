@@ -1,14 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Session } from '../../types'
 
 export function SessionSidebar() {
-  const { sessions, activeSessionId, setSessions, setActiveSession, addSession, removeSession } =
+  const { sessions, activeSessionId, setSessions, setActiveSession, addSession, removeSession, updateSession } =
     useSessionStore()
   const messagesBySession = useChatStore((s) => s.messagesBySession)
   const setMessages = useChatStore((s) => s.setMessages)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const editRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     window.api.getSessions().then((backendSessions) => {
@@ -42,6 +45,27 @@ export function SessionSidebar() {
     removeSession(id)
   }
 
+  const handleDoubleClick = useCallback((session: Session) => {
+    setEditingId(session.id)
+    setEditTitle(session.title)
+    setTimeout(() => editRef.current?.focus(), 50)
+  }, [])
+
+  async function commitRename(id: string) {
+    const title = editTitle.trim()
+    if (title && title !== sessions.find(s => s.id === id)?.title) {
+      await window.api.renameSession(id, title)
+      updateSession(id, { title })
+    }
+    setEditingId(null)
+    setEditTitle('')
+  }
+
+  function cancelRename() {
+    setEditingId(null)
+    setEditTitle('')
+  }
+
   return (
     <div className="flex flex-col h-full bg-surface">
       <div className="flex items-center justify-between p-3 border-b border-hover">
@@ -73,9 +97,30 @@ export function SessionSidebar() {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm text-text-primary truncate pr-4">{session.title}</span>
+              {editingId === session.id ? (
+                <input
+                  ref={editRef}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename(session.id)
+                    if (e.key === 'Escape') cancelRename()
+                  }}
+                  onBlur={() => commitRename(session.id)}
+                  className="flex-1 bg-elevated border border-primary rounded px-1 py-0.5 text-sm text-text-primary outline-none"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span
+                  className="text-sm text-text-primary truncate pr-4"
+                  onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick(session) }}
+                  title="双击重命名"
+                >
+                  {session.title}
+                </span>
+              )}
               <div className="flex items-center gap-1">
-                {hoveredId === session.id && (
+                {hoveredId === session.id && editingId !== session.id && (
                   <span
                     onClick={(e) => handleDelete(e, session.id)}
                     className="text-xs text-text-muted hover:text-red-400 px-1 cursor-pointer"
@@ -96,7 +141,7 @@ export function SessionSidebar() {
               </div>
             </div>
             <p className="text-xs text-text-muted mt-1">
-              {session.messageCount} messages
+              {session.messageCount} 条消息
             </p>
           </button>
         ))}

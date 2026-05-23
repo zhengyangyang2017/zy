@@ -2,11 +2,13 @@ import { usePanelStore } from '../../stores/panelStore'
 import { FilesPanel } from './FilesPanel'
 import { TasksPanel } from './TasksPanel'
 import { GitPanel } from './GitPanel'
+import { ClusterPanel } from './ClusterPanel'
 
 const TABS = [
   { key: 'files' as const, label: '📁 文件' },
   { key: 'tasks' as const, label: '📋 任务' },
-  { key: 'git' as const, label: '🔀 Git' }
+  { key: 'git' as const, label: '🔀 Git' },
+  { key: 'cluster' as const, label: '🖧 集群' },
 ]
 
 export function RightPanel() {
@@ -34,6 +36,7 @@ export function RightPanel() {
         {rightPanelTab === 'files' && <FilesPanel />}
         {rightPanelTab === 'tasks' && <TasksPanel />}
         {rightPanelTab === 'git' && <GitPanel />}
+        {rightPanelTab === 'cluster' && <ClusterPanel />}
       </div>
     </div>
   )

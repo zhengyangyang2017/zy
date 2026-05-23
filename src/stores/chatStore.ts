@@ -11,7 +11,6 @@ interface ChatState {
   appendToStream: (sessionId: string, chunk: string) => void
   commitStream: (sessionId: string, message: Message) => void
   setStreaming: (sessionId: string, isStreaming: boolean) => void
-  setAbortController: (sessionId: string, ctrl: AbortController | null) => void
   clearStream: (sessionId: string) => void
 }
 
@@ -55,14 +54,6 @@ export const useChatStore = create<ChatState>()((set) => ({
       streamBySession: {
         ...s.streamBySession,
         [sessionId]: { ...(s.streamBySession[sessionId] ?? { abortController: null }), isStreaming }
-      }
-    })),
-
-  setAbortController: (sessionId, ctrl) =>
-    set((s) => ({
-      streamBySession: {
-        ...s.streamBySession,
-        [sessionId]: { ...(s.streamBySession[sessionId] ?? { isStreaming: false }), abortController: ctrl }
       }
     })),
 

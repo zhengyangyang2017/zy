@@ -32,8 +32,20 @@ export function InputArea() {
   const isStreaming = useChatStore((s) =>
     activeSessionId ? (s.streamBySession[activeSessionId]?.isStreaming ?? false) : false
   )
+  const [aborting, setAborting] = useState(false)
   const activeSessionRef = useRef(activeSessionId)
   activeSessionRef.current = activeSessionId
+
+  const handleAbort = useCallback(async () => {
+    if (!activeSessionId) return
+    setAborting(true)
+    try {
+      await window.api.abortMessage(activeSessionId)
+    } catch { /* best-effort */ }
+    clearStream(activeSessionId)
+    setStreaming(activeSessionId, false)
+    setTimeout(() => setAborting(false), 500)
+  }, [activeSessionId, clearStream, setStreaming])
 
   // Register stream event listeners
   useEffect(() => {
@@ -253,6 +265,8 @@ export function InputArea() {
           onKeyDown={handleKeyDown}
           placeholder="输入消息，Shift+Enter 换行，Enter 发送..."
           rows={1}
+          aria-label="输入消息"
+          aria-multiline="true"
           className="flex-1 bg-elevated border border-hover rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-muted resize-none focus:outline-none focus:border-primary transition-colors"
           onPaste={(e) => {
             const items = e.clipboardData?.items
@@ -267,13 +281,24 @@ export function InputArea() {
             }
           }}
         />
-        <button
-          onClick={handleSend}
-          disabled={(!input.trim() && files.length === 0) || isStreaming}
-          className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0"
-        >
-          {isStreaming ? '⏳' : '发送'}
-        </button>
+        {isStreaming ? (
+          <button
+            onClick={handleAbort}
+            disabled={aborting}
+            className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-500 disabled:opacity-40 transition-all flex-shrink-0 flex items-center gap-1.5"
+          >
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            {aborting ? '停止中...' : '停止'}
+          </button>
+        ) : (
+          <button
+            onClick={handleSend}
+            disabled={(!input.trim() && files.length === 0) || isStreaming}
+            className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0"
+          >
+            发送
+          </button>
+        )}
       </div>
     </div>
   )
