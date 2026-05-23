@@ -10,6 +10,7 @@ import { execSync, exec } from 'child_process'
 import { getOrchestrator } from './services/cluster'
 import { getEventBus } from './services/cluster/event-bus'
 import { loadConfig, saveConfig } from './services/config'
+import { generateSeedData } from './services/seed-generator'
 import type { AppConfig, ClusterTaskSubmitParams, ClusterResultPayload, ExportResult } from '../types/ipc'
 
 export function registerIpcHandlers(): void {
@@ -455,6 +456,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('config:save', async (_e, updates: Record<string, unknown>) => {
     return saveConfig(updates as Partial<AppConfig>)
+  })
+
+  // === Dev: Seed data generator ===
+  ipcMain.handle('dev:generateSeedData', async () => {
+    return generateSeedData()
   })
 }
 

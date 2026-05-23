@@ -129,6 +129,122 @@ const MIGRATIONS: Migration[] = [
       `)
     },
   },
+  {
+    version: 6,
+    name: 'add_audit_trail',
+    up: (db) => {
+      // Enterprise audit log: who did what, when, from where
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          action TEXT NOT NULL,
+          old_values TEXT,
+          new_values TEXT,
+          performed_by TEXT DEFAULT 'system',
+          ip_address TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+        CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+
+        -- Add soft-delete columns to key tables
+        ALTER TABLE sessions ADD COLUMN deleted_at TEXT;
+        ALTER TABLE messages ADD COLUMN deleted_at TEXT;
+        ALTER TABLE knowledge_nodes ADD COLUMN deleted_at TEXT;
+        ALTER TABLE knowledge_edges ADD COLUMN deleted_at TEXT;
+
+        CREATE INDEX IF NOT EXISTS idx_sessions_deleted ON sessions(deleted_at);
+        CREATE INDEX IF NOT EXISTS idx_nodes_deleted ON knowledge_nodes(deleted_at);
+      `)
+    },
+  },
+  {
+    version: 7,
+    name: 'add_metrics_store',
+    up: (db) => {
+      // Time-series metrics for monitoring
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS metrics (
+          id TEXT PRIMARY KEY,
+          namespace TEXT NOT NULL,
+          metric_name TEXT NOT NULL,
+          metric_value REAL NOT NULL,
+          tags TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_metrics_ns_name ON metrics(namespace, metric_name);
+        CREATE INDEX IF NOT EXISTS idx_metrics_created ON metrics(created_at);
+        CREATE INDEX IF NOT EXISTS idx_metrics_ns_time ON metrics(namespace, created_at);
+
+        -- API call tracking
+        CREATE TABLE IF NOT EXISTS api_call_log (
+          id TEXT PRIMARY KEY,
+          provider TEXT NOT NULL,
+          model TEXT NOT NULL,
+          endpoint TEXT NOT NULL,
+          tokens_used INTEGER DEFAULT 0,
+          latency_ms INTEGER DEFAULT 0,
+          status_code INTEGER,
+          error_message TEXT,
+          cost_estimate REAL,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_api_log_provider ON api_call_log(provider);
+        CREATE INDEX IF NOT EXISTS idx_api_log_created ON api_call_log(created_at);
+
+        -- Session analytics
+        CREATE TABLE IF NOT EXISTS session_analytics (
+          session_id TEXT PRIMARY KEY,
+          total_messages INTEGER DEFAULT 0,
+          total_tokens INTEGER DEFAULT 0,
+          total_api_calls INTEGER DEFAULT 0,
+          first_message_at TEXT,
+          last_message_at TEXT,
+          avg_response_ms INTEGER,
+          updated_at TEXT NOT NULL
+        );
+      `)
+    },
+  },
+  {
+    version: 8,
+    name: 'add_data_retention_and_cleanup',
+    up: (db) => {
+      db.exec(`
+        -- Data retention policy table
+        CREATE TABLE IF NOT EXISTS data_retention_policies (
+          id TEXT PRIMARY KEY,
+          table_name TEXT NOT NULL,
+          retention_days INTEGER NOT NULL,
+          auto_cleanup INTEGER NOT NULL DEFAULT 1,
+          last_cleanup_at TEXT,
+          created_at TEXT NOT NULL
+        );
+
+        -- Default retention policies
+        INSERT OR IGNORE INTO data_retention_policies (id, table_name, retention_days, auto_cleanup, created_at)
+        VALUES
+          ('policy_audit', 'audit_log', 90, 1, datetime('now')),
+          ('policy_metrics', 'metrics', 30, 1, datetime('now')),
+          ('policy_api_log', 'api_call_log', 365, 1, datetime('now')),
+          ('policy_crash', 'crash_logs', 180, 1, datetime('now')),
+          ('policy_diag', 'diagnostics', 60, 1, datetime('now'));
+
+        -- Archive table for deleted-but-kept data
+        CREATE TABLE IF NOT EXISTS data_archive (
+          id TEXT PRIMARY KEY,
+          original_table TEXT NOT NULL,
+          original_id TEXT NOT NULL,
+          data_json TEXT NOT NULL,
+          archived_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_archive_original ON data_archive(original_table, original_id);
+      `)
+    },
+  },
 ]
 
 export function getCurrentVersion(db: Database.Database): number {

@@ -134,6 +134,10 @@ const api = {
 
   saveConfig: (updates: Record<string, unknown>) =>
     ipcRenderer.invoke('config:save', updates),
+
+  // Dev
+  generateSeedData: () =>
+    ipcRenderer.invoke('dev:generateSeedData'),
 }
 
 contextBridge.exposeInMainWorld('api', api)

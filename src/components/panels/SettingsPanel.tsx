@@ -182,6 +182,22 @@ export function SettingsPanel({ onClose }: Props) {
             <p className="text-[10px] text-text-muted px-1">
               会话导出请在会话列表中使用右键菜单
             </p>
+            <button
+              onClick={async () => {
+                try {
+                  setSaving(true)
+                  const result = await window.api.generateSeedData()
+                  setSaved(true)
+                  setTimeout(() => setSaved(false), 2000)
+                } catch (err) {
+                  setError('生成失败')
+                }
+                setSaving(false)
+              }}
+              className="w-full text-left px-3 py-2 bg-elevated border border-hover rounded-lg text-xs text-text-secondary hover:text-text-primary hover:border-text-muted/50 transition-colors"
+            >
+              🧪 生成测试数据 (~15,000行)
+            </button>
           </div>
         </div>
 
