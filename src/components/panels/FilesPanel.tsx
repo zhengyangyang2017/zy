@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useI18n } from '../../i18n'
 import { InlineSpinner } from '../ui/Spinner'
 
 // ============================================
@@ -68,6 +69,7 @@ function DirNode({
   const [loaded, setLoaded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   useEffect(() => {
     if (expanded && !loaded) {
@@ -78,7 +80,7 @@ function DirNode({
         setLoading(false)
       }).catch((err) => {
         console.error(`[FilesPanel] Failed to list "${path}":`, err)
-        setError(`无法读取目录: ${name}`)
+        setError(t('files.dirError', { name }))
         setLoaded(true)
         setLoading(false)
       })
@@ -129,7 +131,7 @@ function DirNode({
           )}
           {loading && (
             <p className="text-xs text-text-muted px-2 flex items-center gap-1" style={{ paddingLeft: `${8 + (depth + 1) * 12}px` }}>
-              <InlineSpinner /> 加载中...
+              <InlineSpinner /> {t('files.loading')}
             </p>
           )}
           {error && (
@@ -151,6 +153,7 @@ function FilePreview({ filePath }: { filePath: string | null }) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { t } = useI18n()
 
   useEffect(() => {
     if (!filePath) {
@@ -179,23 +182,23 @@ function FilePreview({ filePath }: { filePath: string | null }) {
   return (
     <div className="flex flex-col h-full">
       <div className="text-xs text-text-muted px-2 py-1 border-b border-hover truncate flex-shrink-0">
-        {fileName ? `📄 ${fileName}` : '未选择文件'}
+        {fileName ? `📄 ${fileName}` : t('files.noFile')}
       </div>
       <div className="flex-1 overflow-y-auto select-text">
         {loading ? (
           <div className="flex items-center gap-1.5 p-2">
             <InlineSpinner />
-            <span className="text-xs text-text-muted">加载中...</span>
+            <span className="text-xs text-text-muted">{t('files.loading')}</span>
           </div>
         ) : error ? (
           <p className="text-xs text-error p-2">{error}</p>
         ) : content !== null ? (
           <pre className={`text-xs p-2 whitespace-pre-wrap font-mono text-text-primary`}>
-            {content.length > 50000 ? content.slice(0, 50000) + '\n\n... (truncated)' : content}
+            {content.length > 50000 ? content.slice(0, 50000) + '\n\n' + t('files.truncated') : content}
           </pre>
         ) : (
           <p className="text-xs text-text-muted p-2 text-center mt-8">
-            选择文件以预览内容
+            {t('files.preview')}
           </p>
         )}
       </div>
@@ -208,6 +211,7 @@ function FilePreview({ filePath }: { filePath: string | null }) {
 // ============================================
 
 export function FilesPanel() {
+  const { t } = useI18n()
   const [projectRoot, setProjectRoot] = useState<string>('')
   const [rootEntries, setRootEntries] = useState<FileEntry[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -224,12 +228,12 @@ export function FilesPanel() {
         setLoaded(true)
       }).catch((err) => {
         console.error('[FilesPanel] Failed to list project root:', err)
-        setPanelError('无法加载文件列表')
+        setPanelError(t('files.loadError'))
         setLoaded(true)
       })
     }).catch((err) => {
       console.error('[FilesPanel] Failed to get project root:', err)
-      setPanelError('无法获取项目路径')
+      setPanelError(t('files.rootError'))
       setLoaded(true)
     })
   }, [])
@@ -258,13 +262,13 @@ export function FilesPanel() {
             onClick={handleBackToTree}
             className="text-xs text-text-muted hover:text-text-primary px-1"
           >
-            ← 返回
+            {t('files.back')}
           </button>
         ) : (
           <>
             <input
               type="text"
-              placeholder="过滤文件..."
+              placeholder={t('files.filter')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               className="flex-1 bg-transparent text-xs text-text-primary placeholder-text-muted outline-none px-1 py-0.5"
@@ -286,7 +290,7 @@ export function FilesPanel() {
         {!loaded ? (
           <div className="flex items-center gap-1.5 p-2">
             <InlineSpinner />
-            <span className="text-xs text-text-muted">加载中...</span>
+            <span className="text-xs text-text-muted">{t('files.loading')}</span>
           </div>
         ) : panelError ? (
           <p className="text-xs text-error p-2">{panelError}</p>
@@ -322,7 +326,7 @@ export function FilesPanel() {
               )
             )}
             {filteredEntries.length === 0 && (
-              <p className="text-xs text-text-muted p-2 text-center">未找到文件</p>
+              <p className="text-xs text-text-muted p-2 text-center">{t('files.noFiles')}</p>
             )}
           </div>
         )}

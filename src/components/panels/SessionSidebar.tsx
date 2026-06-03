@@ -1,9 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useI18n } from '../../i18n'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Session } from '../../types'
 
 export function SessionSidebar() {
+  const { t } = useI18n()
   const { sessions, activeSessionId, setSessions, setActiveSession, addSession, removeSession, updateSession } =
     useSessionStore()
   const messagesBySession = useChatStore((s) => s.messagesBySession)
@@ -11,7 +13,9 @@ export function SessionSidebar() {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
+  const [search, setSearch] = useState('')
   const editRef = useRef<HTMLInputElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     window.api.getSessions().then((backendSessions) => {
@@ -26,8 +30,14 @@ export function SessionSidebar() {
     })
   }, [])
 
+  const filteredSessions = useMemo(() => {
+    if (!search.trim()) return sessions
+    const lower = search.toLowerCase()
+    return sessions.filter(s => s.title.toLowerCase().includes(lower))
+  }, [sessions, search])
+
   async function handleNewSession() {
-    const session = await window.api.createSession('新会话')
+    const session = await window.api.createSession(t('sidebar.newSession'))
     addSession(session)
   }
 
@@ -69,7 +79,7 @@ export function SessionSidebar() {
   return (
     <div className="flex flex-col h-full bg-surface">
       <div className="flex items-center justify-between p-3 border-b border-hover">
-        <span className="text-sm font-semibold text-text-primary">会话</span>
+        <span className="text-sm font-semibold text-text-primary">{t('sidebar.title')}</span>
         <button
           onClick={handleNewSession}
           className="w-6 h-6 flex items-center justify-center bg-primary text-white rounded-md text-sm hover:opacity-80 transition-opacity"
@@ -78,13 +88,45 @@ export function SessionSidebar() {
         </button>
       </div>
 
+      {/* Search */}
+      <div className="px-2 py-1.5 border-b border-hover">
+        <div className="relative">
+          <input
+            ref={searchRef}
+            type="text"
+            placeholder={t('sidebar.search')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-hover text-xs text-text-primary placeholder-text-muted rounded-md px-2 py-1.5 pr-6 outline-none focus:ring-1 focus:ring-primary"
+          />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); searchRef.current?.focus() }}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary text-xs"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        {search && (
+          <p className="text-[10px] text-text-muted mt-0.5 px-0.5">
+            {t('sidebar.searchResults', { filtered: filteredSessions.length, total: sessions.length })}
+          </p>
+        )}
+      </div>
+
       <div className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 && (
           <p className="text-xs text-text-muted text-center mt-8">
-            还没有会话，点击 + 开始
+            {t('sidebar.empty')}
           </p>
         )}
-        {sessions.map((session) => (
+        {sessions.length > 0 && filteredSessions.length === 0 && (
+          <p className="text-xs text-text-muted text-center mt-8">
+            {t('sidebar.noMatch')}
+          </p>
+        )}
+        {filteredSessions.map((session) => (
           <button
             key={session.id}
             onClick={() => handleSelectSession(session)}
@@ -114,7 +156,7 @@ export function SessionSidebar() {
                 <span
                   className="text-sm text-text-primary truncate pr-4"
                   onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick(session) }}
-                  title="双击重命名"
+                  title={t('sidebar.rename')}
                 >
                   {session.title}
                 </span>
@@ -124,7 +166,7 @@ export function SessionSidebar() {
                   <span
                     onClick={(e) => handleDelete(e, session.id)}
                     className="text-xs text-text-muted hover:text-red-400 px-1 cursor-pointer"
-                    title="删除会话"
+                    title={t('sidebar.delete')}
                   >
                     ✕
                   </span>
@@ -141,7 +183,7 @@ export function SessionSidebar() {
               </div>
             </div>
             <p className="text-xs text-text-muted mt-1">
-              {session.messageCount} 条消息
+              {t('sidebar.messages', { count: session.messageCount })}
             </p>
           </button>
         ))}

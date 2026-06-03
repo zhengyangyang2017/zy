@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useI18n } from '../../i18n'
 import { InlineSpinner } from '../ui/Spinner'
 
 // ============================================
@@ -40,6 +41,7 @@ function StatusBadge({ status }: { status: string }) {
 // ============================================
 
 function DiffViewer({ file, onClose }: { file: string; onClose: () => void }) {
+  const { t } = useI18n()
   const [diff, setDiff] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -58,7 +60,7 @@ function DiffViewer({ file, onClose }: { file: string; onClose: () => void }) {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-1 px-2 py-1 border-b border-hover">
         <button onClick={onClose} className="text-xs text-text-muted hover:text-text-primary">
-          ← 返回
+          {t('git.back')}
         </button>
         <span className="text-xs text-text-secondary truncate">{file}</span>
       </div>
@@ -66,11 +68,11 @@ function DiffViewer({ file, onClose }: { file: string; onClose: () => void }) {
         {loading ? (
           <div className="flex items-center gap-1.5 p-2">
             <InlineSpinner />
-            <span className="text-xs text-text-muted">加载 diff...</span>
+            <span className="text-xs text-text-muted">{t('git.diffLoading')}</span>
           </div>
         ) : (
           <pre className="text-xs p-2 font-mono whitespace-pre-wrap text-text-primary">
-            {diff || '无变更'}
+            {diff || t('git.noChanges')}
           </pre>
         )}
       </div>
@@ -83,6 +85,7 @@ function DiffViewer({ file, onClose }: { file: string; onClose: () => void }) {
 // ============================================
 
 export function GitPanel() {
+  const { t } = useI18n()
   const [status, setStatus] = useState<GitStatus | null>(null)
   const [log, setLog] = useState<GitLog | null>(null)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -134,7 +137,7 @@ export function GitPanel() {
             🔀 <span className="text-primary font-medium">{status.branch}</span>
           </span>
         ) : (
-          <span className="text-xs text-text-muted">无仓库</span>
+          <span className="text-xs text-text-muted">{t('git.noRepo')}</span>
         )}
         <button
           onClick={refresh}
@@ -154,7 +157,7 @@ export function GitPanel() {
         ) : isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <p className="text-2xl">✅</p>
-            <p className="text-xs text-text-muted">工作区干净</p>
+            <p className="text-xs text-text-muted">{t('git.clean')}</p>
           </div>
         ) : (
           <>
@@ -162,7 +165,7 @@ export function GitPanel() {
             {status?.files && status.files.length > 0 && (
               <div>
                 <div className="px-2 py-1 text-[10px] text-text-muted border-b border-hover/50">
-                  变更 ({status.files.length})
+                  {t('git.changesCount', { n: status.files.length })}
                 </div>
                 {status.files.map((f) => (
                   <button
@@ -181,7 +184,7 @@ export function GitPanel() {
             {log?.commits && log.commits.length > 0 && (
               <div>
                 <div className="px-2 py-1 text-[10px] text-text-muted border-b border-hover/50">
-                  最近提交
+                  {t('git.recentCommits')}
                 </div>
                 {log.commits.map((c) => (
                   <div key={c.hash} className="px-2 py-1 border-b border-hover/30 hover:bg-hover">

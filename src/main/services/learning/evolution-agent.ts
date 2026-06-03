@@ -13,11 +13,7 @@
 import { getDb, type EvolutionLogRow, type EvolutionStrategyRow } from '../../db'
 import { getNodeCount } from './knowledge-graph'
 import { retrieve } from './retrieval'
-import https from 'https'
-import { IncomingMessage } from 'http'
-
-const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || ''
-const baseUrl = import.meta.env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || ''
+import { callLLM } from '../llm-client'
 
 const EVOLUTION_CYCLE_MESSAGES = 10 // run analysis every N conversation turns
 const SAMPLE_SIZE = 5 // how many responses to analyze per cycle
@@ -209,7 +205,12 @@ ${samplesText}
 JSON:`
 
   try {
-    const response = await callLLM(prompt)
+    const response = await callLLM({
+      systemPrompt: 'You are a quality analysis AI. Return only valid JSON arrays.',
+      userPrompt: prompt,
+      maxTokens: 2000,
+      temperature: 0.1,
+    })
     const parsed = parseScoreResponse(response, samples)
     return parsed
   } catch {
@@ -283,7 +284,12 @@ ${lowText}
 JSON:`
 
   try {
-    const response = await callLLM(prompt)
+    const response = await callLLM({
+      systemPrompt: 'You are a quality analysis AI. Return only valid JSON arrays.',
+      userPrompt: prompt,
+      maxTokens: 2000,
+      temperature: 0.1,
+    })
     const jsonMatch = response.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return []
     const parsed = JSON.parse(jsonMatch[0])
@@ -367,55 +373,3 @@ export function verifyStrategy(
   }
 }
 
-// ============================================
-// LLM call
-// ============================================
-
-async function callLLM(prompt: string): Promise<string> {
-  const hostname = baseUrl ? new URL(baseUrl).hostname : 'api.deepseek.com'
-  const path = baseUrl ? `${new URL(baseUrl).pathname}/chat/completions` : '/anthropic/v1/chat/completions'
-  const model = import.meta.env.VITE_MODEL_NAME || process.env.VITE_MODEL_NAME || 'deepseek-v4-pro'
-
-  const body = JSON.stringify({
-    model,
-    messages: [
-      { role: 'system', content: 'You are a quality analysis AI. Return only valid JSON arrays.' },
-      { role: 'user', content: prompt }
-    ],
-    max_tokens: 2000,
-    temperature: 0.1,
-  })
-
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname,
-      path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Length': String(Buffer.byteLength(body)),
-      },
-    }, (resp: IncomingMessage) => {
-      const chunks: Buffer[] = []
-      resp.on('data', (chunk: Buffer) => chunks.push(chunk))
-      resp.on('end', () => {
-        const raw = Buffer.concat(chunks).toString()
-        if (resp.statusCode !== 200) {
-          reject(new Error(`LLM call failed: ${resp.statusCode}`))
-          return
-        }
-        try {
-          const json = JSON.parse(raw)
-          resolve(json.choices?.[0]?.message?.content || '')
-        } catch {
-          reject(new Error('Failed to parse LLM response'))
-        }
-      })
-    })
-
-    req.on('error', reject)
-    req.write(body)
-    req.end()
-  })
-}

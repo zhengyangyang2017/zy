@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useI18n } from '../../i18n'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Message } from '../../types'
@@ -26,6 +27,7 @@ export function InputArea() {
   const [files, setFiles] = useState<SelectedFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const { t } = useI18n()
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const { addMessage, appendToStream, commitStream, setStreaming, clearStream } =
     useChatStore()
@@ -155,7 +157,7 @@ export function InputArea() {
         messages: msgs.map((m) => ({ role: m.role, content: m.content }))
       })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '发送失败'
+      const msg = err instanceof Error ? err.message : t('input.error')
       setError(msg)
       clearStream(activeSessionId)
       setStreaming(activeSessionId, false)
@@ -200,7 +202,7 @@ export function InputArea() {
     >
       {dragOver && (
         <div className="absolute inset-0 bg-primary/10 flex items-center justify-center z-10 pointer-events-none">
-          <span className="text-primary font-medium">释放文件以上传</span>
+          <span className="text-primary font-medium">{t('input.dropFiles')}</span>
         </div>
       )}
       {error && (
@@ -254,7 +256,7 @@ export function InputArea() {
           onClick={handlePickFile}
           disabled={isStreaming || uploading}
           className="flex items-center gap-1 px-2.5 py-2.5 text-text-muted hover:text-text-primary hover:bg-hover disabled:opacity-30 rounded-lg transition-colors flex-shrink-0"
-          title="添加文件"
+          title={t('input.attachFile')}
         >
           <span className="text-base leading-none">{uploading ? '⏳' : '📎'}</span>
         </button>
@@ -263,7 +265,7 @@ export function InputArea() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息，Shift+Enter 换行，Enter 发送..."
+          placeholder={t('input.placeholder')}
           rows={1}
           aria-label="输入消息"
           aria-multiline="true"

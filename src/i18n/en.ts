@@ -1,7 +1,3 @@
-/**
- * English locale.
- */
-
 import type { Locale } from './zh-CN'
 
 const en: Locale = {
@@ -13,6 +9,9 @@ const en: Locale = {
     delete: 'Delete Session',
     rename: 'Double-click to rename',
     messages: '{count} messages',
+    search: 'Search sessions...',
+    searchResults: '{filtered} / {total} sessions',
+    noMatch: 'No matching sessions',
   },
   chat: {
     placeholder: 'Type a message, Shift+Enter for new line, Enter to send...',
@@ -22,6 +21,17 @@ const en: Locale = {
     empty: 'Start a conversation',
     noSession: 'Select or create a session to begin',
     thinking: 'Agent cluster processing...',
+    userAvatar: 'Y',
+  },
+  codeBlock: {
+    copy: 'Copy',
+    copied: 'Copied',
+  },
+  input: {
+    placeholder: 'Type a message...',
+    attachFile: 'Attach file',
+    dropFiles: 'Drop files to upload',
+    error: 'Send failed',
   },
   files: {
     title: 'Files',
@@ -34,14 +44,25 @@ const en: Locale = {
     rootError: 'Failed to get project path',
     dirError: 'Failed to read directory: {name}',
     back: '← Back',
+    truncated: '... (truncated)',
   },
   tasks: {
     title: 'Tasks',
-    placeholder: 'Enter research topic...',
+    placeholder: 'Add research topic...',
     empty: 'No tasks yet, add a topic above',
     noMatch: 'No matching tasks',
-    priority: 'Priority',
-    status: 'Status',
+    autoHint: 'AI will discover knowledge gaps and create research tasks automatically',
+    all: 'All',
+    inProgress: 'In Progress',
+    done: 'Done',
+    depth: 'Depth',
+    sources: 'Sources',
+    highPriority: 'High priority',
+    knowledgeStats: 'Nodes {nodes}  Edges {edges}',
+    statusPending: 'Pending',
+    statusResearching: 'Researching',
+    statusCompleted: 'Completed',
+    statusFailed: 'Failed',
   },
   git: {
     title: 'Git',
@@ -53,6 +74,8 @@ const en: Locale = {
     noChanges: 'No changes',
     diffError: 'Failed to load diff',
     statusError: 'Failed to get git status',
+    back: '← Back',
+    changesCount: 'Changes ({n})',
   },
   terminal: {
     title: 'Terminal',
@@ -77,6 +100,20 @@ const en: Locale = {
     taskComplete: 'Agent Cluster Task Complete',
     taskFailed: 'Agent Cluster Task Failed',
     taskDispatched: 'Dispatched {count} tasks to cluster: {types}',
+    agents: '{count} agents',
+    statusIdle: 'Idle',
+    statusWorking: 'Working',
+    statusError: 'Error',
+    statusRestarting: 'Restarting',
+    statusDead: 'Dead',
+    agentDetail: {
+      status: 'Status',
+      role: 'Role',
+      tasksCompleted: 'Tasks Completed',
+      tasksFailed: 'Tasks Failed',
+      avgTime: 'Avg Time',
+      currentTask: 'Current Task',
+    },
   },
   settings: {
     title: 'Settings',
@@ -89,6 +126,7 @@ const en: Locale = {
     dark: 'Dark',
     light: 'Light',
     fontSize: 'Font Size',
+    language: 'Language',
     export: 'Data Export',
     exportKnowledge: 'Export Knowledge Graph (JSON)',
     exportHint: 'Use the session context menu to export conversations',
@@ -99,6 +137,7 @@ const en: Locale = {
     saveError: 'Save failed',
     configRef: 'Common Configurations',
     localOnly: 'Configuration is stored locally',
+    seedData: 'Generate Test Data',
   },
   command: {
     searchPlaceholder: 'Search commands or messages...',
@@ -113,6 +152,7 @@ const en: Locale = {
     terminal: 'Terminal',
     settings: 'Settings',
     toggleTheme: 'Toggle Theme',
+    feedback: 'Feedback & Bug Report',
   },
   error: {
     componentError: 'Component Error',
@@ -121,13 +161,37 @@ const en: Locale = {
     apiKeyMissing: 'API key not configured',
     sendFailed: 'Send failed',
     fileReadError: 'Failed to read file',
-    fileTooLarge: 'File too large',
+    fileTooLarge: 'File too large ({size}MB > 20MB)',
+    commandFailed: 'Failed to execute command',
   },
   export: {
     sessionTitle: 'Export Session',
     knowledgeTitle: 'Export Knowledge Graph',
     cancelled: 'Cancelled',
     failed: 'Export failed',
+  },
+  feedback: {
+    title: 'Feedback & Bug Report',
+    description: 'Describe the issue or suggestion',
+    placeholder: 'Please describe in detail...',
+    diagnostics: 'Include system diagnostics (OS, version, recent error logs)',
+    submit: 'Submit',
+    cancel: 'Cancel',
+    submitting: 'Submitting...',
+    thanks: 'Thank you for your feedback!',
+    error: 'Submission failed',
+  },
+  statusBar: {
+    files: 'Project Files',
+    tasks: 'Tasks Panel',
+    git: 'Git Status',
+    terminal: 'Terminal',
+  },
+  panels: {
+    files: '📁 Files',
+    tasks: '📋 Tasks',
+    git: '🔀 Git',
+    cluster: '🖧 Cluster',
   },
 }
 

@@ -4,7 +4,11 @@
  * Theme: neural network / agent cluster processing visualization.
  */
 
+import { useI18n } from '../../i18n'
+
 export function ThinkingIndicator() {
+  const { t } = useI18n()
+
   return (
     <div className="flex gap-3 mb-4">
       {/* Avatar */}
@@ -63,7 +67,7 @@ export function ThinkingIndicator() {
               />
             </div>
             <span className="text-xs text-text-muted animate-pulse">
-              Agent 集群处理中...
+              {t('chat.thinking')}
             </span>
           </div>
 

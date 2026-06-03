@@ -13,7 +13,7 @@ import { EventBus, getEventBus, createEvent } from './event-bus'
 import { WorkStealingQueue, getWorkStealingQueue } from './task-queue'
 import { initClusterStateStore, checkIdempotency, recordIdempotency, upsertAgentState, getAgentStates } from './state-store'
 import { getRoleHandler, hasApiKey } from './agent-roles'
-import { buildWorkflowFromHints, flattenTaskNodes } from './workflow'
+import { buildWorkflowFromHints, executeWorkflow } from './workflow'
 import { logger } from '../logger'
 import type {
   AgentId,
@@ -42,6 +42,7 @@ export class ClusterOrchestrator {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
   private stateSyncTimer: ReturnType<typeof setInterval> | null = null
   private startedAt = 0
+  private pendingTaskPromises: Map<string, { resolve: (r: TaskResult) => void; reject: (e: Error) => void }> = new Map()
 
   constructor(config: Partial<ClusterConfig> = {}) {
     this.config = { ...DEFAULT_CLUSTER_CONFIG, ...config }
@@ -255,6 +256,7 @@ export class ClusterOrchestrator {
 
         this.bus.publish(createEvent('task:completed', { task, result }, agentId))
         this.bus.publish(createEvent('cluster:taskCompleted', { agentId, taskType: task.type, durationMs }, agentId))
+        this.resolvePendingTask(task.id, result)
 
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err)
@@ -289,6 +291,10 @@ export class ClusterOrchestrator {
         }
 
         this.bus.publish(createEvent('task:failed', { taskId: task.id, agentId, error: errorMsg }, agentId))
+        this.resolvePendingTask(task.id, {
+          taskId: task.id, agentId, success: false, output: '', tokensUsed: 0,
+          durationMs: Date.now() - startMs, errors: [errorMsg], warnings: [],
+        })
       } finally {
         clearInterval(taskHeartbeat)
       }
@@ -439,7 +445,6 @@ export class ClusterOrchestrator {
         })),
       }
     } else {
-      // Default: single research task
       hints = {
         label: goal.slice(0, 50),
         type: 'sequential',
@@ -454,33 +459,61 @@ export class ClusterOrchestrator {
 
     // 2. Build workflow
     const workflow = buildWorkflowFromHints(goal.slice(0, 80), goal, hints)
-    const taskNodes = flattenTaskNodes(workflow.root)
 
-    // 3. Enqueue all task nodes
-    for (const node of taskNodes) {
+    this.bus.publish(createEvent('workflow:created', {
+      workflowId: workflow.id,
+      name: workflow.name,
+      taskCount: 0, // updated after execution
+    }, 'orchestrator'))
+
+    // 3. Execute workflow via DAG engine (fire-and-forget)
+    executeWorkflow(workflow, async (node, workflowCtx) => {
       const taskType = node.taskTemplate?.type || 'research'
       const role = node.taskTemplate?.role || this.mapTaskTypeToRole(taskType)
-      this.submitTask(
+      const taskId = this.submitTask(
         taskType,
         role,
         {
           query: node.taskTemplate?.input?.query || node.label,
-          context,
+          context: context ? `${context}\n${JSON.stringify(workflowCtx.variables)}` : JSON.stringify(workflowCtx.variables),
           ...node.taskTemplate?.input,
         },
         node.taskTemplate?.priority ?? 0.7,
         workflow.id,
       )
-    }
+      return this.waitForTask(taskId)
+    }, { variables: { goal, userContext: context } })
+      .then((execResult) => {
+        logger.info('Orchestrator',
+          `Workflow ${execResult.workflowId} ${execResult.success ? 'completed' : 'failed'} ` +
+          `in ${execResult.durationMs}ms, ${execResult.results.size} results`)
+      })
+      .catch((err) => {
+        logger.error('Orchestrator', `Workflow ${workflow.id} execution error:`, err)
+      })
 
-    this.bus.publish(createEvent('workflow:created', {
-      workflowId: workflow.id,
-      name: workflow.name,
-      taskCount: taskNodes.length,
-    }, 'orchestrator'))
-
-    logger.info('Orchestrator', `Goal "${goal.slice(0, 50)}" → workflow ${workflow.id} with ${taskNodes.length} tasks`)
+    logger.info('Orchestrator', `Goal "${goal.slice(0, 50)}" → workflow ${workflow.id}`)
     return workflow.id
+  }
+
+  private resolvePendingTask(taskId: string, result: TaskResult): void {
+    const pending = this.pendingTaskPromises.get(taskId)
+    if (pending) {
+      this.pendingTaskPromises.delete(taskId)
+      pending.resolve(result)
+    }
+  }
+
+  private waitForTask(taskId: string, timeoutMs: number = 120000): Promise<TaskResult> {
+    return new Promise((resolve, reject) => {
+      this.pendingTaskPromises.set(taskId, { resolve, reject })
+      setTimeout(() => {
+        if (this.pendingTaskPromises.has(taskId)) {
+          this.pendingTaskPromises.delete(taskId)
+          reject(new Error(`Task ${taskId} timed out after ${timeoutMs}ms`))
+        }
+      }, timeoutMs)
+    })
   }
 
   // ============================================

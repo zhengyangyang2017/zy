@@ -1,4 +1,5 @@
 import { useMemo, memo } from 'react'
+import { useI18n } from '../../i18n'
 import type { Message } from '../../types'
 import { Marked } from 'marked'
 import { CodeBlock } from './CodeBlock'
@@ -53,6 +54,7 @@ function RenderedMarkdown({ content }: { content: string }) {
 }
 
 export const MessageBubble = memo(function MessageBubble({ message }: Props) {
+  const { t } = useI18n()
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
   const isStreaming = message.id === 'streaming'
@@ -82,7 +84,7 @@ export const MessageBubble = memo(function MessageBubble({ message }: Props) {
           isUser ? 'bg-gray-600 text-gray-300' : 'bg-primary text-white'
         }`}
       >
-        {isUser ? 'Y' : isStreaming ? (
+        {isUser ? t('chat.userAvatar') : isStreaming ? (
           <span className="relative">
             🤖
             <span className="absolute inset-0 rounded-full bg-primary animate-ping opacity-30" />

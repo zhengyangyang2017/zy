@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useI18n } from '../../i18n'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 interface AppConfig {
   apiKey: string
@@ -13,6 +15,8 @@ interface Props {
 }
 
 export function SettingsPanel({ onClose }: Props) {
+  const { t } = useI18n()
+  const { language, setLanguage } = useSettingsStore()
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -26,7 +30,7 @@ export function SettingsPanel({ onClose }: Props) {
       setLoading(false)
     }).catch((err) => {
       console.error('[SettingsPanel] Failed to load config:', err)
-      setError('无法加载配置')
+      setError(t('settings.loadError'))
       setLoading(false)
     })
   }, [])
@@ -41,7 +45,7 @@ export function SettingsPanel({ onClose }: Props) {
       setTimeout(() => setSaved(false), 2000)
     } catch (err) {
       console.error('[SettingsPanel] Failed to save config:', err)
-      setError('保存失败')
+      setError(t('settings.saveError'))
     }
     setSaving(false)
   }, [config])
@@ -64,7 +68,7 @@ export function SettingsPanel({ onClose }: Props) {
     <div className="flex flex-col h-full bg-surface">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-hover">
-        <span className="text-xs text-text-secondary font-medium">⚙️ 设置</span>
+        <span className="text-xs text-text-secondary font-medium">⚙️ {t('settings.title')}</span>
         <button
           onClick={onClose}
           className="text-text-muted hover:text-text-primary text-sm"
@@ -77,10 +81,10 @@ export function SettingsPanel({ onClose }: Props) {
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {/* API Section */}
         <div>
-          <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2">API 配置</h3>
+          <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2">{t('settings.apiConfig')}</h3>
 
           <label className="block mb-1.5">
-            <span className="text-[10px] text-text-muted">API Key</span>
+            <span className="text-[10px] text-text-muted">{t('settings.apiKey')}</span>
             <div className="flex items-center gap-1 mt-0.5">
               <input
                 type={showKey ? 'text' : 'password'}
@@ -100,7 +104,7 @@ export function SettingsPanel({ onClose }: Props) {
           </label>
 
           <label className="block mb-1.5">
-            <span className="text-[10px] text-text-muted">API Base URL</span>
+            <span className="text-[10px] text-text-muted">{t('settings.apiBaseUrl')}</span>
             <input
               type="text"
               value={config.baseUrl}
@@ -112,7 +116,7 @@ export function SettingsPanel({ onClose }: Props) {
           </label>
 
           <label className="block mb-1.5">
-            <span className="text-[10px] text-text-muted">模型</span>
+            <span className="text-[10px] text-text-muted">{t('settings.model')}</span>
             <input
               type="text"
               value={config.model}
@@ -126,22 +130,34 @@ export function SettingsPanel({ onClose }: Props) {
 
         {/* Appearance */}
         <div>
-          <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2">外观</h3>
+          <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2">{t('settings.appearance')}</h3>
 
           <label className="block mb-1.5">
-            <span className="text-[10px] text-text-muted">主题</span>
+            <span className="text-[10px] text-text-muted">{t('settings.theme')}</span>
             <select
               value={config.theme}
               onChange={(e) => update('theme', e.target.value)}
               className="w-full bg-elevated border border-hover rounded px-2 py-1 text-xs text-text-primary outline-none focus:border-primary mt-0.5"
             >
-              <option value="dark">深色</option>
-              <option value="light">浅色</option>
+              <option value="dark">{t('settings.dark')}</option>
+              <option value="light">{t('settings.light')}</option>
             </select>
           </label>
 
           <label className="block mb-1.5">
-            <span className="text-[10px] text-text-muted">字号 ({config.fontSize}px)</span>
+            <span className="text-[10px] text-text-muted">{t('settings.language')}</span>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value as 'zh-CN' | 'en')}
+              className="w-full bg-elevated border border-hover rounded px-2 py-1 text-xs text-text-primary outline-none focus:border-primary mt-0.5"
+            >
+              <option value="zh-CN">中文</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+
+          <label className="block mb-1.5">
+            <span className="text-[10px] text-text-muted">{t('settings.fontSize')} ({config.fontSize}px)</span>
             <input
               type="range"
               min="12"
@@ -156,7 +172,7 @@ export function SettingsPanel({ onClose }: Props) {
 
         {/* Provider hints */}
         <div className="text-[10px] text-text-muted space-y-1 bg-elevated rounded-lg p-2 border border-hover/50">
-          <p className="font-medium text-text-secondary mb-1">常用配置参考</p>
+          <p className="font-medium text-text-secondary mb-1">{t('settings.configRef')}</p>
           <p>DeepSeek:  https://api.deepseek.com | deepseek-v4-pro</p>
           <p>OpenAI:   https://api.openai.com | gpt-4o</p>
           <p>Anthropic: (key 以 sk-ant 开头自动识别) | claude-sonnet-4-6</p>
@@ -164,7 +180,7 @@ export function SettingsPanel({ onClose }: Props) {
 
         {/* Export */}
         <div>
-          <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2">数据导出</h3>
+          <h3 className="text-[10px] text-text-muted uppercase tracking-wider mb-2">{t('settings.export')}</h3>
           <div className="space-y-1.5">
             <button
               onClick={async () => {
@@ -172,15 +188,15 @@ export function SettingsPanel({ onClose }: Props) {
                   const result = await window.api.exportKnowledge()
                   const exportResult = result as { success: boolean; error?: string }
                   if (exportResult.success) setError(null)
-                  else setError(exportResult.error || '导出失败')
-                } catch (err) { setError('导出失败') }
+                  else setError(exportResult.error || t('export.failed'))
+                } catch (err) { setError(t('export.failed')) }
               }}
               className="w-full text-left px-3 py-2 bg-elevated border border-hover rounded-lg text-xs text-text-secondary hover:text-text-primary hover:border-text-muted/50 transition-colors"
             >
-              📦 导出知识图谱 (JSON)
+              📦 {t('settings.exportKnowledge')}
             </button>
             <p className="text-[10px] text-text-muted px-1">
-              会话导出请在会话列表中使用右键菜单
+              {t('settings.exportHint')}
             </p>
             <button
               onClick={async () => {
@@ -196,7 +212,7 @@ export function SettingsPanel({ onClose }: Props) {
               }}
               className="w-full text-left px-3 py-2 bg-elevated border border-hover rounded-lg text-xs text-text-secondary hover:text-text-primary hover:border-text-muted/50 transition-colors"
             >
-              🧪 生成测试数据 (~15,000行)
+              🧪 {t('settings.seedData')}
             </button>
           </div>
         </div>
@@ -212,18 +228,18 @@ export function SettingsPanel({ onClose }: Props) {
       {/* Footer */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-hover">
         <span className="text-[10px] text-text-muted">
-          配置保存在本地，不会上传
+          {t('settings.localOnly')}
         </span>
         <div className="flex items-center gap-2">
           {saved && (
-            <span className="text-xs text-success">✓ 已保存</span>
+            <span className="text-xs text-success">✓ {t('settings.saved')}</span>
           )}
           <button
             onClick={handleSave}
             disabled={saving}
             className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
           >
-            {saving ? '⏳ 保存中...' : '保存'}
+            {saving ? '⏳ ' + t('settings.saving') : t('settings.save')}
           </button>
         </div>
       </div>

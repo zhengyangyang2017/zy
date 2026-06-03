@@ -108,8 +108,10 @@ app.whenReady().then(() => {
   // Start agent cluster (lazy-loaded, skip in safe mode)
   if (!safeMode) {
     loadCluster().then(() => {
-      startCluster!().then(() => {
-        logger.info('Main', 'Agent cluster started')
+      const { tier } = getLicenseStatus()
+      const agentCount = tier === 'pro' || tier === 'enterprise' ? 20 : 3
+      startCluster!({ agentCount }).then(() => {
+        logger.info('Main', `Agent cluster started with ${agentCount} agents (tier=${tier})`)
       }).catch((err: Error) => {
         logger.error('Main', 'Agent cluster start failed:', err)
       })

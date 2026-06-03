@@ -1,15 +1,17 @@
+import { useI18n } from '../../i18n'
 import { usePanelStore } from '../../stores/panelStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useEffect, useState } from 'react'
 
-const BUTTONS = [
-  { key: 'files' as const,  label: '文件', icon: '📁', hint: '项目文件' },
-  { key: 'tasks' as const,  label: '任务', icon: '📋', hint: 'AI 研究任务' },
-  { key: 'git' as const,    label: 'Git',  icon: '🔀', hint: '版本控制' },
-]
-
 export function StatusBar() {
+  const { t } = useI18n()
   const toggleRightPanelTab = usePanelStore((s) => s.toggleRightPanelTab)
+
+  const BUTTONS = [
+    { key: 'files' as const,  label: t('statusBar.files'), icon: '📁', hint: t('statusBar.files') },
+    { key: 'tasks' as const,  label: t('statusBar.tasks'), icon: '📋', hint: t('statusBar.tasks') },
+    { key: 'git' as const,    label: t('statusBar.git'),  icon: '🔀', hint: t('statusBar.git') },
+  ]
   const panelStore = usePanelStore()
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const [nodeCount, setNodeCount] = useState(0)
@@ -50,7 +52,7 @@ export function StatusBar() {
       {/* Terminal toggle */}
       <button
         onClick={usePanelStore.getState().toggleBottomPanel}
-        title="终端"
+        title={t('statusBar.terminal')}
         className={`flex items-center gap-1 px-2 py-0.5 rounded transition-colors ${
           panelStore.bottomPanelOpen
             ? 'bg-active text-primary'
@@ -58,7 +60,7 @@ export function StatusBar() {
         }`}
       >
         <span className="text-sm leading-none">💻</span>
-        <span className="text-[10px]">终端</span>
+        <span className="text-[10px]">{t('statusBar.terminal')}</span>
       </button>
 
       <div className="flex-1" />

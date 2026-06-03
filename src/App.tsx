@@ -21,6 +21,7 @@ export default function App() {
     bottomPanelOpen, bottomPanelHeight,
     settingsOpen, toggleSettings,
     feedbackOpen, toggleFeedback,
+    setSidebarWidth, setRightPanelWidth, setBottomPanelHeight,
   } = usePanelStore()
 
   return (
@@ -51,6 +52,9 @@ export default function App() {
         rightPanelOpen={rightPanelOpen}
         bottomPanelOpen={bottomPanelOpen}
         bottomPanelHeight={bottomPanelHeight}
+        onResizeSidebar={setSidebarWidth}
+        onResizeRightPanel={setRightPanelWidth}
+        onResizeBottomPanel={setBottomPanelHeight}
       />
       <ErrorBoundary name="CommandPalette">
         <CommandPalette />

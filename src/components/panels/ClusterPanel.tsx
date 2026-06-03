@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useI18n } from '../../i18n'
 
 interface AgentInfo {
   id: string
@@ -63,6 +64,7 @@ function formatMs(ms: number): string {
 }
 
 export function ClusterPanel() {
+  const { t } = useI18n()
   const [state, setState] = useState<ClusterState | null>(null)
   const [goal, setGoal] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -102,7 +104,7 @@ export function ClusterPanel() {
   if (!state) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted text-xs">
-        连接集群中...
+        {t('cluster.connecting')}
       </div>
     )
   }
@@ -117,24 +119,24 @@ export function ClusterPanel() {
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-1 border-b border-hover">
         <span className="text-text-muted flex items-center gap-1">
-          🖧 Agent 集群
-          <span className="text-[10px] text-text-muted/50">— {agents.length} agents</span>
+          🖧 {t('cluster.title')}
+          <span className="text-[10px] text-text-muted/50">— {t('cluster.agents', { count: agents.length })}</span>
         </span>
         <div className="flex items-center gap-2 text-[10px]">
-          <span className="text-success">{working} 工作</span>
-          <span className="text-text-muted">{idle} 空闲</span>
-          {errorAgents > 0 && <span className="text-error">{errorAgents} 异常</span>}
+          <span className="text-success">{working} {t('cluster.working')}</span>
+          <span className="text-text-muted">{idle} {t('cluster.idle')}</span>
+          {errorAgents > 0 && <span className="text-error">{errorAgents} {t('cluster.error')}</span>}
         </div>
       </div>
 
       {/* Queue bar */}
       <div className="flex items-center gap-3 px-3 py-1 border-b border-hover/50 text-[10px] text-text-muted">
-        <span>队列: <span className="text-text-primary">{queueStats.totalPending}</span> 待处理</span>
-        <span><span className="text-text-primary">{queueStats.totalRunning}</span> 运行中</span>
-        <span><span className="text-text-primary">{queueStats.totalCompleted}</span> 已完成</span>
-        <span>等待 {formatMs(queueStats.avgWaitMs)}</span>
-        <span>窃取 {queueStats.stealCount}</span>
-        <span>吞吐 {state.avgThroughput}/min</span>
+        <span>{t('cluster.queue')}: <span className="text-text-primary">{queueStats.totalPending}</span> {t('cluster.pending')}</span>
+        <span><span className="text-text-primary">{queueStats.totalRunning}</span> {t('cluster.running')}</span>
+        <span><span className="text-text-primary">{queueStats.totalCompleted}</span> {t('cluster.completed')}</span>
+        <span>{t('cluster.wait')} {formatMs(queueStats.avgWaitMs)}</span>
+        <span>{t('cluster.steal')} {queueStats.stealCount}</span>
+        <span>{t('cluster.throughput')} {state.avgThroughput}/min</span>
       </div>
 
       {/* Agent grid */}
@@ -181,19 +183,19 @@ export function ClusterPanel() {
               <span className="text-text-muted">{formatUptime(agent.uptime)}</span>
             </div>
             <div className="grid grid-cols-3 gap-x-3 gap-y-0.5 text-[10px]">
-              <span className="text-text-muted">状态</span>
+              <span className="text-text-muted">{t('cluster.agentDetail.status')}</span>
               <span className="text-text-primary col-span-2">{agent.status}</span>
-              <span className="text-text-muted">角色</span>
+              <span className="text-text-muted">{t('cluster.agentDetail.role')}</span>
               <span className="text-text-primary col-span-2">{ROLE_ICONS[agent.role]} {agent.role}</span>
-              <span className="text-text-muted">任务完成</span>
+              <span className="text-text-muted">{t('cluster.agentDetail.tasksCompleted')}</span>
               <span className="text-text-primary col-span-2">{agent.tasksCompleted}</span>
-              <span className="text-text-muted">任务失败</span>
+              <span className="text-text-muted">{t('cluster.agentDetail.tasksFailed')}</span>
               <span className="text-text-primary col-span-2">{agent.tasksFailed}</span>
-              <span className="text-text-muted">平均耗时</span>
+              <span className="text-text-muted">{t('cluster.agentDetail.avgTime')}</span>
               <span className="text-text-primary col-span-2">{formatMs(agent.avgTaskMs)}</span>
               {agent.currentTask && (
                 <>
-                  <span className="text-text-muted">当前任务</span>
+                  <span className="text-text-muted">{t('cluster.agentDetail.currentTask')}</span>
                   <span className="text-text-primary col-span-2 truncate font-mono">{agent.currentTask}</span>
                 </>
               )}
@@ -215,13 +217,13 @@ export function ClusterPanel() {
               submitGoal()
             }
           }}
-          placeholder="提交目标给集群..."
+          placeholder={t('cluster.goalPlaceholder')}
           className="flex-1 bg-transparent text-xs text-text-primary placeholder-text-muted outline-none"
           disabled={submitting}
           spellCheck={false}
           autoComplete="off"
         />
-        {submitting && <span className="text-warning text-[10px]">分解中...</span>}
+        {submitting && <span className="text-warning text-[10px]">{t('cluster.decomposing')}</span>}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useI18n } from '../../i18n'
 import { InlineSpinner } from '../ui/Spinner'
 
 // ============================================
@@ -22,11 +23,18 @@ interface KnowledgeStats {
   edgeCount: number
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  pending:    { label: '等待中', color: 'text-text-muted', icon: '○' },
-  researching:{ label: '研究中', color: 'text-primary', icon: '◉' },
-  completed:  { label: '已完成', color: 'text-success', icon: '●' },
-  failed:     { label: '失败',   color: 'text-error', icon: '✕' },
+const STATUS_CONFIG: Record<string, { color: string; icon: string }> = {
+  pending:    { color: 'text-text-muted', icon: '○' },
+  researching:{ color: 'text-primary', icon: '◉' },
+  completed:  { color: 'text-success', icon: '●' },
+  failed:     { color: 'text-error', icon: '✕' },
+}
+
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: 'tasks.statusPending',
+  researching: 'tasks.statusResearching',
+  completed: 'tasks.statusCompleted',
+  failed: 'tasks.statusFailed',
 }
 
 // ============================================
@@ -34,6 +42,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string
 // ============================================
 
 function TaskRow({ task }: { task: TaskItem }) {
+  const { t } = useI18n()
   const config = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending
 
   return (
@@ -46,12 +55,12 @@ function TaskRow({ task }: { task: TaskItem }) {
             <p className="text-[10px] text-text-muted truncate mt-0.5">{task.question}</p>
           )}
           <div className="flex items-center gap-2 mt-0.5">
-            <span className={`text-[10px] ${config.color}`}>{config.label}</span>
+            <span className={`text-[10px] ${config.color}`}>{t(STATUS_LABEL_KEYS[task.status] || STATUS_LABEL_KEYS.pending)}</span>
             <span className="text-[10px] text-text-muted">
-              深度:{task.depth} · 源:{task.max_sources}
+              {t('tasks.depth')}:{task.depth} · {t('tasks.sources')}:{task.max_sources}
             </span>
             {task.priority > 0.7 && (
-              <span className="text-[10px] text-warning">⚡高优先</span>
+              <span className="text-[10px] text-warning">{t('tasks.highPriority')}</span>
             )}
           </div>
         </div>
@@ -65,6 +74,7 @@ function TaskRow({ task }: { task: TaskItem }) {
 // ============================================
 
 export function TasksPanel() {
+  const { t } = useI18n()
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [stats, setStats] = useState<KnowledgeStats>({ nodeCount: 0, edgeCount: 0 })
   const [newTopic, setNewTopic] = useState('')
@@ -115,15 +125,14 @@ export function TasksPanel() {
     <div className="flex flex-col h-full">
       {/* Knowledge stats */}
       <div className="flex items-center gap-3 px-2 py-1.5 border-b border-hover text-[10px] text-text-muted">
-        <span>🧠 节点 {stats.nodeCount}</span>
-        <span>🔗 边 {stats.edgeCount}</span>
+        <span>{t('tasks.knowledgeStats', { nodes: stats.nodeCount, edges: stats.edgeCount })}</span>
       </div>
 
       {/* Create task input */}
       <div className="flex gap-1 px-2 py-1.5 border-b border-hover">
         <input
           type="text"
-          placeholder="添加研究主题..."
+          placeholder={t('tasks.placeholder')}
           value={newTopic}
           onChange={(e) => setNewTopic(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
@@ -148,7 +157,7 @@ export function TasksPanel() {
               filter === f ? 'text-primary border-b border-primary' : 'text-text-muted hover:text-text-secondary'
             }`}
           >
-            {f === 'all' ? `全部 (${tasks.length})` : f === 'pending' ? `进行中 (${pendingCount})` : `已完成 (${completedCount})`}
+            {f === 'all' ? `${t('tasks.all')} (${tasks.length})` : f === 'pending' ? `${t('tasks.inProgress')} (${pendingCount})` : `${t('tasks.done')} (${completedCount})`}
           </button>
         ))}
       </div>
@@ -159,11 +168,11 @@ export function TasksPanel() {
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <p className="text-2xl">📋</p>
             <p className="text-xs text-text-muted">
-              {tasks.length === 0 ? '暂无任务，在上方输入框添加研究主题' : '没有匹配的任务'}
+              {tasks.length === 0 ? t('tasks.empty') : t('tasks.noMatch')}
             </p>
             {tasks.length === 0 && (
               <p className="text-[10px] text-text-muted">
-                AI 会在对话中自动发现知识盲区并创建研究任务
+                {t('tasks.autoHint')}
               </p>
             )}
           </div>

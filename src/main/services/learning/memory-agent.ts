@@ -10,16 +10,12 @@
  * 6. Reinforce existing nodes that were referenced
  */
 
-import https from 'https'
-import { IncomingMessage } from 'http'
 import { getDb } from '../../db'
-import { createNode, createEdge, getNode, getLSHCandidates, reinforceMemory, applyDecayToAll } from './knowledge-graph'
+import { createNode, createEdge, getNode, getLSHCandidates, reinforceMemory, applyDecayToAll, getAllVectors } from './knowledge-graph'
 import { embed, cosineSimilarity } from './embeddings'
 import { getNodeVector } from './knowledge-graph'
 import { computeLSHKeys, estimateJaccard } from './lsh'
-
-const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || ''
-const baseUrl = import.meta.env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || ''
+import { callLLM } from '../llm-client'
 
 // ============================================
 // Main extraction
@@ -44,21 +40,23 @@ export async function extractKnowledge(
   messages: MessageBufferEntry[]
 ): Promise<number> {
   if (messages.length === 0) return 0
-  if (!apiKey) {
-    console.log('[MemoryAgent] No API key, skipping extraction')
-    return 0
-  }
 
   try {
     // 1. Format prompt and call LLM
     const prompt = buildExtractionPrompt(messages)
-    const rawResponse = await callLLM(prompt)
+    const rawResponse = await callLLM({
+      systemPrompt: 'You are a knowledge extraction AI. Return only valid JSON arrays.',
+      userPrompt: prompt,
+      maxTokens: 2000,
+      temperature: 0.1,
+    })
     const items = parseExtractionResponse(rawResponse)
 
     if (items.length === 0) return 0
 
     // 2. Process each item
     let created = 0
+    const newNodeIds: string[] = []
     for (const item of items) {
       try {
         // Dedup check
@@ -71,7 +69,7 @@ export async function extractKnowledge(
         const vector = await embed(text)
 
         // Create node
-        createNode({
+        const nodeId = createNode({
           type: item.type,
           title: item.title,
           content: item.content,
@@ -82,6 +80,7 @@ export async function extractKnowledge(
           confidence: 0.6,
         }, vector)
 
+        newNodeIds.push(nodeId)
         created++
       } catch (err) {
         console.warn(`[MemoryAgent] Failed to create node for "${item.title}":`, err)
@@ -89,7 +88,9 @@ export async function extractKnowledge(
     }
 
     // 3. Build edges between new nodes and existing related ones
-    await buildEdgesForNewNodes(items.map(i => i.title))
+    if (newNodeIds.length > 0) {
+      await buildEdgesForNewNodes(newNodeIds)
+    }
 
     // 4. Periodic decay
     if (Math.random() < 0.1) {
@@ -184,19 +185,45 @@ async function isDuplicate(title: string, content: string): Promise<boolean> {
 // Edge building
 // ============================================
 
-async function buildEdgesForNewNodes(titles: string[]): Promise<void> {
-  // For each new node, check semantic similarity with existing nodes
-  // If similarity > 0.5, create a "related_to" edge
-  for (const title of titles) {
-    const newNode = getNodeByTitle(title)
-    if (!newNode) continue
+async function buildEdgesForNewNodes(newNodeIds: string[]): Promise<void> {
+  const MIN_SIMILARITY = 0.5
+  const MAX_EDGES_PER_NODE = 5
 
-    const newVec = getNodeVector(newNode.id)
+  // Get all existing vectors (includes the new nodes)
+  const allVectors = getAllVectors()
+  if (allVectors.size === 0) return
+
+  for (const newNodeId of newNodeIds) {
+    const newVec = getNodeVector(newNodeId)
     if (!newVec) continue
 
-    // This is a simplified edge builder.
-    // Full implementation would scan all existing nodes.
-    // For now, we create edges lazily — when nodes are retrieved together.
+    // Find top-K similar existing nodes (excluding self and other new nodes)
+    const scored: { id: string; score: number }[] = []
+    const newSet = new Set(newNodeIds)
+
+    for (const [existingId, existingVec] of allVectors) {
+      if (existingId === newNodeId || newSet.has(existingId)) continue
+      const sim = cosineSimilarity(newVec, existingVec)
+      if (sim >= MIN_SIMILARITY) {
+        scored.push({ id: existingId, score: sim })
+      }
+    }
+
+    // Keep top K edges
+    scored.sort((a, b) => b.score - a.score)
+    for (const { id: targetId, score } of scored.slice(0, MAX_EDGES_PER_NODE)) {
+      try {
+        createEdge({
+          sourceId: newNodeId,
+          targetId,
+          relationType: 'related_to',
+          weight: Math.min(1, score),
+          inferred: true,
+        })
+      } catch {
+        // edge may already exist (unique constraint), skip
+      }
+    }
   }
 }
 
@@ -205,55 +232,3 @@ function getNodeByTitle(title: string): { id: string } | undefined {
   return db.prepare('SELECT id FROM knowledge_nodes WHERE title = ?').get(title) as { id: string } | undefined
 }
 
-// ============================================
-// LLM API call
-// ============================================
-
-async function callLLM(prompt: string): Promise<string> {
-  const hostname = baseUrl ? new URL(baseUrl).hostname : 'api.deepseek.com'
-  const path = baseUrl ? `${new URL(baseUrl).pathname}/chat/completions` : '/anthropic/v1/chat/completions'
-  const model = import.meta.env.VITE_MODEL_NAME || process.env.VITE_MODEL_NAME || 'deepseek-v4-pro'
-
-  const body = JSON.stringify({
-    model,
-    messages: [
-      { role: 'system', content: 'You are a knowledge extraction AI. Return only valid JSON arrays.' },
-      { role: 'user', content: prompt }
-    ],
-    max_tokens: 2000,
-    temperature: 0.1,
-  })
-
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname,
-      path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Length': String(Buffer.byteLength(body)),
-      },
-    }, (resp: IncomingMessage) => {
-      const chunks: Buffer[] = []
-      resp.on('data', (chunk: Buffer) => chunks.push(chunk))
-      resp.on('end', () => {
-        const raw = Buffer.concat(chunks).toString()
-        if (resp.statusCode !== 200) {
-          reject(new Error(`LLM call failed: ${resp.statusCode} ${raw}`))
-          return
-        }
-        try {
-          const json = JSON.parse(raw)
-          resolve(json.choices?.[0]?.message?.content || '')
-        } catch {
-          reject(new Error('Failed to parse LLM response'))
-        }
-      })
-    })
-
-    req.on('error', reject)
-    req.write(body)
-    req.end()
-  })
-}
