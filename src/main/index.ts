@@ -19,6 +19,8 @@ import { runMigrations } from './services/migrations'
 import { initCrashReporter, shouldStartSafeMode } from './services/crash-reporter'
 import { initAutoUpdater, startPeriodicUpdateCheck, stopPeriodicUpdateCheck } from './services/auto-updater'
 import { initOfflineMonitor, stopOfflineMonitor } from './services/offline-monitor'
+import { destroyAllSessions } from './services/terminal'
+import { initLicense, shutdownLicense, getLicenseStatus } from './services/license'
 import { getDb } from './db'
 
 let mainWindow: BrowserWindow | null = null
@@ -83,6 +85,14 @@ app.whenReady().then(() => {
   }
 
   registerIpcHandlers()
+
+  // Initialize license (trial or stored tokens)
+  initLicense().then(status => {
+    logger.info('Main', `License: tier=${status.tier} trial=${status.trial}`)
+  }).catch(err => {
+    logger.error('Main', 'License init failed:', err)
+  })
+
   createWindow()
 
   // Initialize auto-updater
@@ -121,7 +131,9 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   stopPeriodicUpdateCheck()
   stopOfflineMonitor()
+  shutdownLicense()
   stopScheduler()
+  destroyAllSessions()
   if (stopCluster) stopCluster().catch(() => {})
   if (process.platform !== 'darwin') app.quit()
 })

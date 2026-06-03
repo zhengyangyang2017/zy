@@ -94,9 +94,32 @@ const api = {
   getProjectRoot: () =>
     ipcRenderer.invoke('app:projectRoot'),
 
-  // Terminal
-  executeShellCommand: (cmd: string) =>
-    ipcRenderer.invoke('terminal:exec', cmd),
+  // Interactive Terminal (PTY-based)
+  createTerminal: (sessionId: string, cols: number, rows: number) =>
+    ipcRenderer.invoke('terminal:create', sessionId, cols, rows),
+
+  writeToTerminal: (sessionId: string, data: string) =>
+    ipcRenderer.invoke('terminal:write', sessionId, data),
+
+  resizeTerminal: (sessionId: string, cols: number, rows: number) =>
+    ipcRenderer.invoke('terminal:resize', sessionId, cols, rows),
+
+  destroyTerminal: (sessionId: string) =>
+    ipcRenderer.invoke('terminal:destroy', sessionId),
+
+  onTerminalData: (callback: (data: { sessionId: string; data: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; data: string }) =>
+      callback(data)
+    ipcRenderer.on('terminal:data', handler)
+    return () => ipcRenderer.removeListener('terminal:data', handler)
+  },
+
+  onTerminalExit: (callback: (data: { sessionId: string; exitCode: number; signal: number }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; exitCode: number; signal: number }) =>
+      callback(data)
+    ipcRenderer.on('terminal:exit', handler)
+    return () => ipcRenderer.removeListener('terminal:exit', handler)
+  },
 
   // Agent Cluster
   getClusterState: () =>
@@ -135,9 +158,29 @@ const api = {
   saveConfig: (updates: Record<string, unknown>) =>
     ipcRenderer.invoke('config:save', updates),
 
+  // Feedback
+  submitFeedback: (message: string, diagnostics: string) =>
+    ipcRenderer.invoke('feedback:submit', { message, diagnostics }),
+
   // Dev
   generateSeedData: () =>
     ipcRenderer.invoke('dev:generateSeedData'),
+
+  // License & Auth
+  getLicenseStatus: () =>
+    ipcRenderer.invoke('license:status'),
+
+  activateLicense: (activationToken: string) =>
+    ipcRenderer.invoke('license:activate', activationToken),
+
+  loginWithPhone: (phone: string, code: string) =>
+    ipcRenderer.invoke('license:login', phone, code),
+
+  logout: () =>
+    ipcRenderer.invoke('license:logout'),
+
+  sendSmsCode: (phone: string) =>
+    ipcRenderer.invoke('license:sendCode', phone),
 }
 
 contextBridge.exposeInMainWorld('api', api)

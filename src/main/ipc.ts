@@ -6,11 +6,15 @@ import { getDb } from './db'
 import type { SessionRow, MessageRow } from './db'
 import { getKnowledgeStats, startResearch } from './services/learning/orchestrator'
 import { enqueueTask, getTasks } from './services/learning/scheduler'
-import { execSync, exec } from 'child_process'
+import { execSync } from 'child_process'
 import { getOrchestrator } from './services/cluster'
 import { getEventBus } from './services/cluster/event-bus'
 import { loadConfig, saveConfig } from './services/config'
 import { generateSeedData } from './services/seed-generator'
+import { createSession, writeToSession, resizeSession, destroySession, getSessionBuffer } from './services/terminal'
+import { shouldIgnore } from './services/gitignore'
+import { saveFeedback } from './services/feedback'
+import { initLicense, getLicenseStatus, activateLicense, loginWithPhone, logout } from './services/license'
 import type { AppConfig, ClusterTaskSubmitParams, ClusterResultPayload, ExportResult } from '../types/ipc'
 
 export function registerIpcHandlers(): void {
@@ -178,10 +182,15 @@ export function registerIpcHandlers(): void {
   // === File system browser ===
   ipcMain.handle('fs:listDir', async (_e, dirPath: string) => {
     try {
+      const rootPath = process.cwd()
       const entries = await readdir(dirPath, { withFileTypes: true })
       const items = await Promise.all(
         entries
-          .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules' && e.name !== 'out')
+          .filter(e => {
+            const absPath = join(dirPath, e.name)
+            const relPath = absPath.replace(rootPath, '').replace(/^[/\\]/, '').replace(/\\/g, '/')
+            return !shouldIgnore(rootPath, relPath)
+          })
           .map(async (entry) => {
             const fullPath = join(dirPath, entry.name)
             const isDir = entry.isDirectory()
@@ -267,18 +276,23 @@ export function registerIpcHandlers(): void {
     return getKnowledgeStats()
   })
 
-  // === Terminal ===
-  ipcMain.handle('terminal:exec', async (_e, cmd: string) => {
-    return new Promise<{ output: string; error: string | null }>((resolve) => {
-      const opts = { cwd: process.cwd(), timeout: 30000, maxBuffer: 1024 * 1024 }
-      exec(cmd, opts, (err, stdout, stderr) => {
-        if (err) {
-          resolve({ output: stderr || err.message, error: null })
-        } else {
-          resolve({ output: stdout || stderr || '', error: null })
-        }
-      })
-    })
+  // === Terminal (PTY-based interactive shell) ===
+  ipcMain.handle('terminal:create', async (event, sessionId: string, cols: number, rows: number) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return ''
+    return createSession(win, sessionId, cols, rows)
+  })
+
+  ipcMain.handle('terminal:write', async (_e, sessionId: string, data: string) => {
+    writeToSession(sessionId, data)
+  })
+
+  ipcMain.handle('terminal:resize', async (_e, sessionId: string, cols: number, rows: number) => {
+    resizeSession(sessionId, cols, rows)
+  })
+
+  ipcMain.handle('terminal:destroy', async (_e, sessionId: string) => {
+    destroySession(sessionId)
   })
 
   // === Agent Cluster ===
@@ -458,9 +472,46 @@ export function registerIpcHandlers(): void {
     return saveConfig(updates as Partial<AppConfig>)
   })
 
+  // === Feedback ===
+  ipcMain.handle('feedback:submit', async (_e, payload: { message: string; diagnostics: string }) => {
+    return saveFeedback(payload)
+  })
+
   // === Dev: Seed data generator ===
   ipcMain.handle('dev:generateSeedData', async () => {
     return generateSeedData()
+  })
+
+  // === License ===
+  ipcMain.handle('license:status', async () => {
+    return getLicenseStatus()
+  })
+
+  ipcMain.handle('license:activate', async (_e, activationToken: string) => {
+    return activateLicense(activationToken)
+  })
+
+  ipcMain.handle('license:login', async (_e, phone: string, code: string) => {
+    return loginWithPhone(phone, code)
+  })
+
+  ipcMain.handle('license:logout', async () => {
+    logout()
+    return getLicenseStatus()
+  })
+
+  ipcMain.handle('license:sendCode', async (_e, phone: string) => {
+    const res = await fetch('https://your-app.vercel.app/api/auth/send-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Unknown error' }))
+      throw new Error(err.error || '发送失败')
+    }
+    return await res.json()
   })
 }
 
