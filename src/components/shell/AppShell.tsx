@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { TitleBar } from './TitleBar'
 import { StatusBar } from './StatusBar'
+import { TrialBanner } from '../../renderer/components/auth/TrialBanner'
+import { LoginModal } from '../../renderer/components/auth/LoginModal'
 
 interface Props {
   sidebar: ReactNode
@@ -87,6 +89,7 @@ export function AppShell({
   onResizeBottomPanel,
 }: Props) {
   const [isMac, setIsMac] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   useEffect(() => { setIsMac(navigator.platform.toLowerCase().includes('mac')) }, [])
 
   const sidebarResize = useDragResize(onResizeSidebar, MIN_SIDEBAR, MAX_SIDEBAR, sidebarWidth, 'horizontal')
@@ -96,6 +99,8 @@ export function AppShell({
   return (
     <div className="flex flex-col h-screen bg-base">
       {isMac && <TitleBar />}
+
+      <TrialBanner />
 
       <div className="flex flex-1 overflow-hidden">
         <div
@@ -153,6 +158,15 @@ export function AppShell({
       </div>
 
       <StatusBar />
+
+      <LoginModal
+        open={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onLoginSuccess={() => {
+          // Refresh license status after login
+          window.api.getLicenseStatus().then(() => {}).catch(() => {})
+        }}
+      />
     </div>
   )
 }

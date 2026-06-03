@@ -2,6 +2,7 @@ import { useI18n } from '../../i18n'
 import { usePanelStore } from '../../stores/panelStore'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useEffect, useState } from 'react'
+import type { LicenseStatus } from '../../types/license'
 
 export function StatusBar() {
   const { t } = useI18n()
@@ -15,6 +16,7 @@ export function StatusBar() {
   const panelStore = usePanelStore()
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const [nodeCount, setNodeCount] = useState(0)
+  const [license, setLicense] = useState<LicenseStatus | null>(null)
 
   // Poll knowledge stats
   useEffect(() => {
@@ -25,6 +27,16 @@ export function StatusBar() {
     }
     poll()
     const interval = setInterval(poll, 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Poll license status
+  useEffect(() => {
+    const poll = () => {
+      window.api.getLicenseStatus().then(setLicense).catch(() => {})
+    }
+    poll()
+    const interval = setInterval(poll, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -66,6 +78,15 @@ export function StatusBar() {
       <div className="flex-1" />
 
       {/* Right side info */}
+      {license && (
+        <span className={`text-[10px] flex items-center gap-1 ml-3 px-1.5 py-0.5 rounded ${
+          license.tier === 'pro' || license.tier === 'enterprise'
+            ? 'bg-purple-500/20 text-purple-300'
+            : 'bg-text-muted/20 text-text-muted'
+        }`}>
+          {license.trial ? '🧪 试用中' : license.tier === 'pro' ? '⭐ Pro' : license.tier === 'enterprise' ? '🏢 企业' : '免费版'}
+        </span>
+      )}
       {activeSessionId && (
         <span className="text-[10px] text-text-muted flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-success" />
