@@ -64,5 +64,10 @@ function initSchema(db: Database.Database): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       expires_at TEXT NOT NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_licenses_user_id ON licenses(user_id);
+    CREATE INDEX IF NOT EXISTS idx_activation_tokens_license_id ON activation_tokens(license_id);
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sms_codes_phone ON sms_codes(phone);
   `)
 }
