@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getDb, initSchema } from '@/lib/db'
 import { signAccessToken, signRefreshToken } from '@/lib/jwt'
 
 export async function POST(req: NextRequest) {
@@ -11,44 +11,54 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb()
+    await initSchema()
 
     // Rate limit: max 10 verification attempts per phone per 15 minutes
-    const verifyAttempts = db.prepare(`
-      SELECT COUNT(*) as count FROM sms_codes
-      WHERE phone = ? AND created_at > datetime('now', '-15 minutes')
-    `).get(phone) as { count: number }
+    const verifyResult = await db.execute({
+      sql: `SELECT COUNT(*) as count FROM sms_codes
+            WHERE phone = ? AND created_at > datetime('now', '-15 minutes')`,
+      args: [phone],
+    })
+    const verifyAttempts = verifyResult.rows[0] as unknown as { count: number }
 
     if (verifyAttempts.count > 10) {
       return NextResponse.json({ error: '验证尝试过于频繁，请15分钟后再试' }, { status: 429 })
     }
 
-    const record = db.prepare(`
-      SELECT id FROM sms_codes
-      WHERE phone = ? AND code = ? AND used = 0 AND expires_at > datetime('now')
-      ORDER BY created_at DESC LIMIT 1
-    `).get(phone, code) as { id: string } | undefined
+    const codeResult = await db.execute({
+      sql: `SELECT id FROM sms_codes
+            WHERE phone = ? AND code = ? AND used = 0 AND expires_at > datetime('now')
+            ORDER BY created_at DESC LIMIT 1`,
+      args: [phone, code],
+    })
+    const record = codeResult.rows[0] as unknown as { id: string } | undefined
 
     if (!record) {
       return NextResponse.json({ error: '验证码错误或已过期' }, { status: 401 })
     }
 
-    db.prepare('UPDATE sms_codes SET used = 1 WHERE id = ?').run(record.id)
+    await db.execute({ sql: 'UPDATE sms_codes SET used = 1 WHERE id = ?', args: [record.id] })
 
-    let user = db.prepare('SELECT id FROM users WHERE phone = ?').get(phone) as { id: string } | undefined
+    const userResult = await db.execute({ sql: 'SELECT id FROM users WHERE phone = ?', args: [phone] })
+    let user = userResult.rows[0] as unknown as { id: string } | undefined
 
     if (!user) {
       const userId = crypto.randomUUID()
-      db.prepare('INSERT INTO users (id, phone, last_login_at) VALUES (?, ?, datetime(\'now\'))')
-        .run(userId, phone)
+      await db.execute({
+        sql: "INSERT INTO users (id, phone, last_login_at) VALUES (?, ?, datetime('now'))",
+        args: [userId, phone],
+      })
       user = { id: userId }
     } else {
-      db.prepare('UPDATE users SET last_login_at = datetime(\'now\') WHERE id = ?').run(user.id)
+      await db.execute({ sql: "UPDATE users SET last_login_at = datetime('now') WHERE id = ?", args: [user.id] })
     }
 
-    const license = db.prepare(`
-      SELECT tier FROM licenses WHERE user_id = ? AND status = 'active' AND expires_at > datetime('now')
-      ORDER BY expires_at DESC LIMIT 1
-    `).get(user.id) as { tier: string } | undefined
+    const licResult = await db.execute({
+      sql: `SELECT tier FROM licenses WHERE user_id = ? AND status = 'active' AND expires_at > datetime('now')
+            ORDER BY expires_at DESC LIMIT 1`,
+      args: [user.id],
+    })
+    const license = licResult.rows[0] as unknown as { tier: string } | undefined
 
     const tier = license?.tier || 'free'
     const trial = !license

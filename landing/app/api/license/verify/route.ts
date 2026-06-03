@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getDb, initSchema } from '@/lib/db'
 import { verifyAccessToken, signAccessToken } from '@/lib/jwt'
 
 export async function GET(req: NextRequest) {
@@ -19,10 +19,14 @@ export async function GET(req: NextRequest) {
     }
 
     const db = getDb()
-    const license = db.prepare(`
-      SELECT tier FROM licenses WHERE user_id = ? AND status = 'active' AND expires_at > datetime('now')
-      ORDER BY expires_at DESC LIMIT 1
-    `).get(payload.sub) as { tier: string } | undefined
+    await initSchema()
+
+    const licResult = await db.execute({
+      sql: `SELECT tier FROM licenses WHERE user_id = ? AND status = 'active' AND expires_at > datetime('now')
+            ORDER BY expires_at DESC LIMIT 1`,
+      args: [payload.sub],
+    })
+    const license = licResult.rows[0] as unknown as { tier: string } | undefined
 
     const effectiveTier = license?.tier || 'free'
     const trial = !license

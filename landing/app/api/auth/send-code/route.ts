@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getDb, initSchema } from '@/lib/db'
 
 const RATE_LIMIT_MAX = 3
 
@@ -12,11 +12,14 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb()
+    await initSchema()
 
-    const recentCount = db.prepare(`
-      SELECT COUNT(*) as count FROM sms_codes
-      WHERE phone = ? AND created_at > datetime('now', '-1 hour')
-    `).get(phone) as { count: number }
+    const result = await db.execute({
+      sql: `SELECT COUNT(*) as count FROM sms_codes
+            WHERE phone = ? AND created_at > datetime('now', '-1 hour')`,
+      args: [phone],
+    })
+    const recentCount = result.rows[0] as unknown as { count: number }
 
     if (recentCount.count >= RATE_LIMIT_MAX) {
       return NextResponse.json({ error: '发送过于频繁，请1小时后再试' }, { status: 429 })
@@ -25,10 +28,11 @@ export async function POST(req: NextRequest) {
     const code = String(Math.floor(100000 + Math.random() * 900000))
     const id = crypto.randomUUID()
 
-    db.prepare(`
-      INSERT INTO sms_codes (id, phone, code, expires_at)
-      VALUES (?, ?, ?, datetime('now', '+15 minutes'))
-    `).run(id, phone, code)
+    await db.execute({
+      sql: `INSERT INTO sms_codes (id, phone, code, expires_at)
+            VALUES (?, ?, ?, datetime('now', '+15 minutes'))`,
+      args: [id, phone, code],
+    })
 
     // Dev only: log code to console (replace with real SMS provider in production)
     if (process.env.NODE_ENV !== 'production') {

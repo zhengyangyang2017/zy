@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb } from '@/lib/db'
+import { getDb, initSchema } from '@/lib/db'
 import { signAccessToken, signRefreshToken } from '@/lib/jwt'
 
 export async function POST(req: NextRequest) {
@@ -11,22 +11,27 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getDb()
+    await initSchema()
 
-    const activation = db.prepare(`
-      SELECT token, license_id, used FROM activation_tokens
-      WHERE token = ? AND used = 0 AND expires_at > datetime('now')
-    `).get(activation_token) as { token: string; license_id: string; used: number } | undefined
+    const actResult = await db.execute({
+      sql: `SELECT token, license_id, used FROM activation_tokens
+            WHERE token = ? AND used = 0 AND expires_at > datetime('now')`,
+      args: [activation_token],
+    })
+    const activation = actResult.rows[0] as unknown as { token: string; license_id: string; used: number } | undefined
 
     if (!activation) {
       return NextResponse.json({ error: '激活令牌无效或已过期' }, { status: 401 })
     }
 
-    db.prepare('UPDATE activation_tokens SET used = 1 WHERE token = ?').run(activation.token)
+    await db.execute({ sql: 'UPDATE activation_tokens SET used = 1 WHERE token = ?', args: [activation.token] })
 
-    const license = db.prepare(`
-      SELECT l.user_id, l.tier FROM licenses l
-      WHERE l.id = ? AND l.status = 'active' AND l.expires_at > datetime('now')
-    `).get(activation.license_id) as { user_id: string; tier: string } | undefined
+    const licResult = await db.execute({
+      sql: `SELECT l.user_id, l.tier FROM licenses l
+            WHERE l.id = ? AND l.status = 'active' AND l.expires_at > datetime('now')`,
+      args: [activation.license_id],
+    })
+    const license = licResult.rows[0] as unknown as { user_id: string; tier: string } | undefined
 
     if (!license) {
       return NextResponse.json({ error: '许可证已过期或已取消' }, { status: 410 })
