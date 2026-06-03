@@ -7,7 +7,7 @@
  * Offline grace: 7 days from last successful online verification
  */
 
-import { encryptSecret, decryptSecret } from './secure-store'
+import { encryptSecret, decryptSecret, initSecureStore } from './secure-store'
 import { getDb } from '../db'
 import { logger } from './logger'
 
@@ -40,6 +40,7 @@ let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 /** Initialize license on app startup. Returns current status. */
 export async function initLicense(): Promise<LicenseStatus> {
+  initSecureStore()
   // Initialize trial table
   initTrialTable()
   initKvStore()
@@ -170,12 +171,16 @@ function loadTokens(): StoredTokens | null {
 }
 
 function saveTokens(tokens: StoredTokens): void {
-  const db = getDb()
-  const encrypted = encryptSecret(JSON.stringify(tokens))
-  db.prepare(`
-    INSERT OR REPLACE INTO kv_store (key, value, updated_at)
-    VALUES ('license_tokens', ?, datetime('now'))
-  `).run(encrypted)
+  try {
+    const db = getDb()
+    const encrypted = encryptSecret(JSON.stringify(tokens))
+    db.prepare(`
+      INSERT OR REPLACE INTO kv_store (key, value, updated_at)
+      VALUES ('license_tokens', ?, datetime('now'))
+    `).run(encrypted)
+  } catch (err) {
+    logger.error('License', 'Failed to save tokens:', err)
+  }
 }
 
 function clearTokens(): void {
@@ -189,9 +194,11 @@ async function verifyOrGrace(tokens: StoredTokens): Promise<LicenseStatus> {
 
   // If within grace period, check if we can use local token data
   if (offlineDuration < OFFLINE_GRACE_MS) {
+    let payload: { sub: string; tier: string; trial: boolean; exp: number } | undefined
+
     try {
       // Try to decode JWT payload without verifying (for tier info)
-      const payload = JSON.parse(
+      payload = JSON.parse(
         Buffer.from(tokens.accessToken.split('.')[1], 'base64').toString('utf-8')
       ) as { sub: string; tier: string; trial: boolean; exp: number }
 
@@ -208,15 +215,23 @@ async function verifyOrGrace(tokens: StoredTokens): Promise<LicenseStatus> {
       const refreshed = await refreshTokens(tokens)
       return refreshed
     } catch {
-      // Decode failed — fall through to online check
+      // Grace period active but refresh failed — return cached tier from JWT
+      // (we already decoded the payload above, keep using it)
+      if (offlineDuration < OFFLINE_GRACE_MS) {
+        logger.warn('License', 'Offline within grace period, using cached tier')
+        return {
+          tier: (payload?.tier as LicenseStatus['tier']) || 'free',
+          trial: payload?.trial || false,
+          userId: payload?.sub || '',
+        }
+      }
     }
   }
 
-  // Offline grace expired or decode failed: require online check
+  // Fall through: try online verify, then fall back
   try {
     return await onlineVerify(tokens)
   } catch {
-    // Server unreachable and grace expired: fall back to trial or free
     logger.warn('License', 'Server unreachable, grace expired — falling back to trial')
     const trialStatus = getOrStartTrial()
     return trialStatus
@@ -237,6 +252,15 @@ async function onlineVerify(tokens: StoredTokens): Promise<LicenseStatus> {
   const data = await res.json()
   tokens.accessToken = data.access_token || tokens.accessToken
   tokens.lastOnlineCheck = Date.now()
+
+  // Extract userId from the new access token's JWT payload
+  try {
+    const payload = JSON.parse(
+      Buffer.from(tokens.accessToken.split('.')[1], 'base64').toString('utf-8')
+    ) as { sub: string }
+    tokens.userId = payload.sub || tokens.userId
+  } catch { /* keep existing userId */ }
+
   saveTokens(tokens)
 
   return {
@@ -298,30 +322,35 @@ function initTrialTable(): void {
 }
 
 function getOrStartTrial(): LicenseStatus {
-  const db = getDb()
-  const trial = db.prepare('SELECT start_date, end_date FROM trial_state WHERE id = 1').get() as {
-    start_date: string; end_date: string
-  } | undefined
+  try {
+    const db = getDb()
+    const trial = db.prepare('SELECT start_date, end_date FROM trial_state WHERE id = 1').get() as {
+      start_date: string; end_date: string
+    } | undefined
 
-  if (trial) {
-    const endDate = new Date(trial.end_date)
-    const now = new Date()
-    if (endDate > now) {
-      const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
-      return { tier: 'pro', trial: true, daysRemaining }
+    if (trial) {
+      const endDate = new Date(trial.end_date)
+      const now = new Date()
+      if (endDate > now) {
+        const daysRemaining = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+        return { tier: 'pro', trial: true, daysRemaining }
+      }
+      // Trial expired
+      return { tier: 'free', trial: false }
     }
-    // Trial expired
+
+    // Start new trial
+    const now = new Date()
+    const endDate = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
+    db.prepare('INSERT INTO trial_state (id, start_date, end_date) VALUES (1, ?, ?)')
+      .run(now.toISOString(), endDate.toISOString())
+
+    logger.info('License', `Trial started, ends ${endDate.toISOString()}`)
+    return { tier: 'pro', trial: true, daysRemaining: TRIAL_DAYS }
+  } catch (err) {
+    logger.error('License', 'Trial management error:', err)
     return { tier: 'free', trial: false }
   }
-
-  // Start new trial
-  const now = new Date()
-  const endDate = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000)
-  db.prepare('INSERT INTO trial_state (id, start_date, end_date) VALUES (1, ?, ?)')
-    .run(now.toISOString(), endDate.toISOString())
-
-  logger.info('License', `Trial started, ends ${endDate.toISOString()}`)
-  return { tier: 'pro', trial: true, daysRemaining: TRIAL_DAYS }
 }
 
 // ============================================
