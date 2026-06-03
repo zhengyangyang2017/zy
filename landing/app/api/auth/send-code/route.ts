@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
 const RATE_LIMIT_MAX = 3
 
 export async function POST(req: NextRequest) {
@@ -32,7 +31,9 @@ export async function POST(req: NextRequest) {
     `).run(id, phone, code)
 
     // Dev only: log code to console (replace with real SMS provider in production)
-    console.log(`[SMS] Code for ${phone}: ${code}`)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[SMS] Code for ${phone}: ${code}`)
+    }
 
     return NextResponse.json({ success: true, message: '验证码已发送' })
   } catch (err) {

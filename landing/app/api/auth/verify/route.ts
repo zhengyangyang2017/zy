@@ -12,6 +12,16 @@ export async function POST(req: NextRequest) {
 
     const db = getDb()
 
+    // Rate limit: max 10 verification attempts per phone per 15 minutes
+    const verifyAttempts = db.prepare(`
+      SELECT COUNT(*) as count FROM sms_codes
+      WHERE phone = ? AND created_at > datetime('now', '-15 minutes')
+    `).get(phone) as { count: number }
+
+    if (verifyAttempts.count > 10) {
+      return NextResponse.json({ error: '验证尝试过于频繁，请15分钟后再试' }, { status: 429 })
+    }
+
     const record = db.prepare(`
       SELECT id FROM sms_codes
       WHERE phone = ? AND code = ? AND used = 0 AND expires_at > datetime('now')
