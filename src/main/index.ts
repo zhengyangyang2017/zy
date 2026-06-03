@@ -1,5 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { registerIpcHandlers } from './ipc'
 import { startScheduler, stopScheduler } from './services/learning/scheduler'
 import { seedFromProject } from './services/learning/cold-start'
@@ -62,6 +62,60 @@ function createWindow(): void {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+// Register custom protocol for license activation
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('codebuddy', process.execPath, [resolve(process.argv[1])])
+  }
+} else {
+  app.setAsDefaultProtocolClient('codebuddy')
+}
+
+// Handle custom protocol on macOS
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleActivationUrl(url)
+})
+
+// Single instance lock + Windows/Linux protocol handling
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const url = commandLine.find(arg => arg.startsWith('codebuddy://'))
+    if (url) handleActivationUrl(url)
+    // Focus existing window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
+function handleActivationUrl(url: string): void {
+  try {
+    const parsed = new URL(url)
+    if (parsed.pathname === 'activate' || parsed.hostname === 'activate') {
+      const token = parsed.searchParams.get('token')
+      if (token) {
+        import('./services/license').then(({ activateLicense }) => {
+          activateLicense(token).then(status => {
+            logger.info('Main', `Activated via protocol: tier=${status.tier}`)
+            if (mainWindow) {
+              mainWindow.webContents.send('license:activated', status)
+            }
+          }).catch(err => {
+            logger.error('Main', 'Protocol activation failed:', err)
+          })
+        })
+      }
+    }
+  } catch (err) {
+    logger.error('Main', 'Invalid activation URL:', err)
   }
 }
 
