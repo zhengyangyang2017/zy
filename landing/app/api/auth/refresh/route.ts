@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getDb, initSchema } from '@/lib/db'
+import { sql } from '@vercel/postgres'
+import { initSchema } from '@/lib/db'
 import { verifyRefreshToken, signAccessToken } from '@/lib/jwt'
 
 export async function POST(req: NextRequest) {
@@ -17,15 +18,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'refresh_token 无效或已过期' }, { status: 401 })
     }
 
-    const db = getDb()
     await initSchema()
 
-    const licResult = await db.execute({
-      sql: `SELECT tier FROM licenses WHERE user_id = ? AND status = 'active' AND expires_at > datetime('now')
-            ORDER BY expires_at DESC LIMIT 1`,
-      args: [payload.sub],
-    })
-    const license = licResult.rows[0] as unknown as { tier: string } | undefined
+    const licResult = await sql`SELECT tier FROM licenses WHERE user_id = ${payload.sub} AND status = 'active' AND expires_at > NOW()
+            ORDER BY expires_at DESC LIMIT 1`
+    const license = licResult.rows[0] as { tier: string } | undefined
 
     const tier = license?.tier || 'free'
     const trial = !license

@@ -501,7 +501,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('license:sendCode', async (_e, phone: string) => {
-    const res = await fetch('https://your-app.vercel.app/api/auth/send-code', {
+    const res = await fetch('https://landing-three-sigma-75.vercel.app/api/auth/send-code', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone }),

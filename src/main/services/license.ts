@@ -11,7 +11,7 @@ import { encryptSecret, decryptSecret, initSecureStore } from './secure-store'
 import { getDb } from '../db'
 import { logger } from './logger'
 
-const LICENSE_SERVER_URL = 'https://your-app.vercel.app' // CHANGEME: set to actual Vercel URL
+const LICENSE_SERVER_URL = 'https://landing-three-sigma-75.vercel.app'
 const TRIAL_DAYS = 7
 const OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000 // refresh every 24h

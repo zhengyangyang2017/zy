@@ -19,7 +19,7 @@ export function TrialBanner() {
         </span>
       </div>
       <a
-        href="https://your-app.vercel.app/#pricing"
+        href="https://landing-three-sigma-75.vercel.app/#pricing"
         target="_blank"
         rel="noopener noreferrer"
         className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded-md transition-colors"
