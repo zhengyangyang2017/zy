@@ -5,6 +5,7 @@ export interface Message {
   content: string
   createdAt: string
   toolCalls?: ToolCall[]
+  feedback?: 'up' | 'down' | null  // NEW
 }
 
 export interface ToolCall {
@@ -22,6 +23,8 @@ export interface Session {
   updatedAt: string
   messageCount: number
   status: 'active' | 'background' | 'idle'
+  parentSessionId?: string   // NEW: for conversation branching
+  branchPoint?: string        // NEW: message ID where branch starts
 }
 
 export interface StreamState {
@@ -29,16 +32,30 @@ export interface StreamState {
   abortController: AbortController | null
 }
 
-export type PanelTab = 'files' | 'tasks' | 'git' | 'cluster'
-
+// Removed PanelTab — no longer needed
 export type Theme = 'dark' | 'light'
 
 export interface PanelLayout {
   sidebarOpen: boolean
   sidebarWidth: number
-  rightPanelOpen: boolean
-  rightPanelWidth: number
-  rightPanelTab: PanelTab
+  // REMOVED: rightPanelOpen, rightPanelWidth, rightPanelTab
   bottomPanelOpen: boolean
   bottomPanelHeight: number
+  settingsOpen: boolean
+  feedbackOpen: boolean
+}
+
+// NEW types
+export interface PromptTemplate {
+  id: string
+  title: string
+  prompt: string
+  icon: string
+}
+
+export interface FeedbackRecord {
+  messageId: string
+  sessionId: string
+  rating: 'up' | 'down'
+  timestamp: string
 }
