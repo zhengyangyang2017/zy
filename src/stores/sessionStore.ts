@@ -9,6 +9,8 @@ interface SessionState {
   addSession: (session: Session) => void
   removeSession: (id: string) => void
   updateSession: (id: string, updates: Partial<Session>) => void
+  togglePin: (id: string) => void
+  setTags: (id: string, tags: string[]) => void
 }
 
 export const useSessionStore = create<SessionState>()((set) => ({
@@ -40,6 +42,20 @@ export const useSessionStore = create<SessionState>()((set) => ({
     set((s) => ({
       sessions: s.sessions.map((sess) =>
         sess.id === id ? { ...sess, ...updates } : sess
+      )
+    })),
+
+  togglePin: (id) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === id ? { ...sess, pinned: !sess.pinned } : sess
+      )
+    })),
+
+  setTags: (id, tags) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === id ? { ...sess, tags } : sess
       )
     }))
 }))
