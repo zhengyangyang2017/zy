@@ -522,7 +522,9 @@ function rowToSession(r: SessionRow) {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     messageCount: r.message_count,
-    status: r.status as 'active' | 'background' | 'idle'
+    status: r.status as 'active' | 'background' | 'idle',
+    parentSessionId: r.parent_session_id ?? undefined,
+    branchPoint: r.branch_point ?? undefined,
   }
 }
 

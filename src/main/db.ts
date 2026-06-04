@@ -37,6 +37,17 @@ function initTables() {
 
     CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 
+    CREATE TABLE IF NOT EXISTS message_feedback (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      rating TEXT NOT NULL CHECK(rating IN ('up', 'down')),
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_feedback_message ON message_feedback(message_id);
+
     -- ============================================
     -- Knowledge Graph Tables
     -- ============================================
@@ -157,6 +168,14 @@ function initTables() {
     );
   `)
 
+  // Add parent_session_id and branch_point to sessions (safe migration)
+  try {
+    db.exec(`ALTER TABLE sessions ADD COLUMN parent_session_id TEXT`)
+  } catch { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE sessions ADD COLUMN branch_point TEXT`)
+  } catch { /* column already exists */ }
+
   // FTS5 virtual table: created separately (can't use IF NOT EXISTS in exec with virtual tables)
   ensureFtsTable()
 }
@@ -187,6 +206,8 @@ export interface SessionRow {
   updated_at: string
   message_count: number
   status: string
+  parent_session_id?: string | null
+  branch_point?: string | null
 }
 
 export interface MessageRow {
