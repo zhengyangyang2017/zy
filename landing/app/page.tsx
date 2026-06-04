@@ -2,6 +2,7 @@ import { Hero } from '@/components/Hero'
 import { Features } from '@/components/Features'
 import { Pricing } from '@/components/Pricing'
 import { FAQ } from '@/components/FAQ'
+import { Download } from '@/components/Download'
 
 export default function Home() {
   return (
@@ -11,13 +12,14 @@ export default function Home() {
         <div className="flex gap-6 text-sm text-gray-400">
           <a href="#features" className="hover:text-white transition-colors">功能</a>
           <a href="#pricing" className="hover:text-white transition-colors">定价</a>
+          <a href="#download" className="hover:text-white transition-colors">下载</a>
           <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
-          <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">GitHub</a>
         </div>
       </nav>
       <Hero />
       <Features />
       <Pricing />
+      <Download />
       <FAQ />
       <footer className="text-center py-12 text-xs text-gray-600 border-t border-gray-800">
         <p>&copy; 2026 CodeBuddy. Built with &#x2764;&#xFE0F; for developers.</p>

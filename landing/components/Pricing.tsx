@@ -33,7 +33,7 @@ export function Pricing() {
             <li className="text-sm text-gray-300">✅ 无限知识库容量</li>
             <li className="text-sm text-gray-300">✅ 7天免费试用</li>
           </ul>
-          <a href="/subscribe" className="block text-center bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">开始试用</a>
+          <a href="#download" className="block text-center bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">免费下载试用</a>
         </div>
         {/* Enterprise */}
         <div className="bg-white/5 border border-gray-700/50 rounded-xl p-8">
