@@ -66,6 +66,9 @@ const api = {
   readFileContent: (filePath: string) =>
     ipcRenderer.invoke('fs:readFile', filePath),
 
+  searchFiles: (query: string) =>
+    ipcRenderer.invoke('fs:searchFiles', query),
+
   // Git
   gitStatus: () =>
     ipcRenderer.invoke('git:status'),

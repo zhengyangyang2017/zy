@@ -211,6 +211,44 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // === File search for @mentions ===
+  ipcMain.handle('fs:searchFiles', async (_e, query: string) => {
+    try {
+      const rootPath = process.cwd()
+      const { readdir, stat } = await import('fs/promises')
+      const { join, relative } = await import('path')
+
+      async function walk(dir: string, results: string[], depth: number): Promise<void> {
+        if (depth > 4 || results.length >= 20) return
+        try {
+          const entries = await readdir(dir, { withFileTypes: true })
+          for (const entry of entries) {
+            if (entry.name.startsWith('.') && entry.name !== '.env.example') continue
+            if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'out' || entry.name === '.git') continue
+            const fullPath = join(dir, entry.name)
+            const relPath = relative(rootPath, fullPath).replace(/\\/g, '/')
+            const lowerQuery = query.toLowerCase()
+            if (relPath.toLowerCase().includes(lowerQuery)) {
+              try {
+                const st = await stat(fullPath)
+                results.push(relPath + (st.isDirectory() ? '/' : ''))
+              } catch { /* skip */ }
+            }
+            if (entry.isDirectory() && depth < 4 && results.length < 20) {
+              await walk(fullPath, results, depth + 1)
+            }
+          }
+        } catch { /* skip */ }
+      }
+
+      const results: string[] = []
+      await walk(rootPath, results, 0)
+      return results.slice(0, 15)
+    } catch (err) {
+      return []
+    }
+  })
+
   ipcMain.handle('fs:readFile', async (_e, filePath: string) => {
     try {
       const content = await readFile(filePath, 'utf-8')
