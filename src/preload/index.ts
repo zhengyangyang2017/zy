@@ -29,6 +29,12 @@ const api = {
   }) =>
     ipcRenderer.invoke('session:addMessage', sessionId, message),
 
+  updateSession: (id: string, updates: Record<string, unknown>) =>
+    ipcRenderer.invoke('session:update', id, updates),
+
+  searchSessions: (query: string) =>
+    ipcRenderer.invoke('session:search', query),
+
   // Streaming listeners
   onStreamChunk: (callback: (data: { sessionId: string; chunk: string }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { sessionId: string; chunk: string }) =>

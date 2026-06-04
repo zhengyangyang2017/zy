@@ -83,6 +83,45 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  ipcMain.handle('session:update', async (_e, id: string, updates: Record<string, unknown>) => {
+    const db = getDb()
+    const sets: string[] = []
+    const values: unknown[] = []
+
+    if ('pinned' in updates) {
+      sets.push('pinned = ?')
+      values.push(updates.pinned ? 1 : 0)
+    }
+    if ('tags' in updates) {
+      sets.push('tags = ?')
+      values.push(Array.isArray(updates.tags) ? (updates.tags as string[]).join(',') : '')
+    }
+    if ('title' in updates) {
+      sets.push('title = ?')
+      values.push(updates.title)
+    }
+
+    if (sets.length === 0) return false
+    sets.push("updated_at = ?")
+    values.push(new Date().toISOString())
+    values.push(id)
+
+    db.prepare(`UPDATE sessions SET ${sets.join(', ')} WHERE id = ?`).run(...values)
+    return true
+  })
+
+  ipcMain.handle('session:search', async (_e, query: string) => {
+    const db = getDb()
+    const rows = db.prepare(`
+      SELECT DISTINCT s.* FROM sessions s
+      LEFT JOIN messages m ON s.id = m.session_id
+      WHERE s.title LIKE ? OR m.content LIKE ?
+      ORDER BY s.updated_at DESC
+      LIMIT 20
+    `).all(`%${query}%`, `%${query}%`) as SessionRow[]
+    return rows.map(rowToSession)
+  })
+
   // File operations
   ipcMain.handle('dialog:openFile', async (event) => {
     try {
