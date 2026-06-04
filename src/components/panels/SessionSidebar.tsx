@@ -2,6 +2,8 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { useI18n } from '../../i18n'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
+import { useToastStore } from '../../stores/toastStore'
+import { SessionContextMenu } from './SessionContextMenu'
 import type { Session } from '../../types'
 
 export function SessionSidebar() {
@@ -17,6 +19,14 @@ export function SessionSidebar() {
   const editRef = useRef<HTMLInputElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // Phase 2 state
+  const [contextMenu, setContextMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null)
+  const [tagFilter, setTagFilter] = useState<string | null>(null)
+  const [editingTags, setEditingTags] = useState<string | null>(null)
+  const [tagInput, setTagInput] = useState('')
+  const [searchResults, setSearchResults] = useState<Session[] | null>(null)
+  const [searching, setSearching] = useState(false)
+
   useEffect(() => {
     window.api.getSessions().then((backendSessions) => {
       if (backendSessions.length > 0) {
@@ -30,11 +40,44 @@ export function SessionSidebar() {
     })
   }, [])
 
+  // Content search (debounced, triggers for queries >= 3 chars)
+  useEffect(() => {
+    if (!search.trim() || search.trim().length < 3) {
+      setSearchResults(null)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const results = await window.api.searchSessions(search)
+        setSearchResults(results)
+      } catch { setSearchResults(null) }
+      setSearching(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // Collect all unique tags
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    sessions.forEach(s => s.tags?.forEach(t => set.add(t)))
+    return Array.from(set).sort()
+  }, [sessions])
+
+  // Filtered and sorted sessions
   const filteredSessions = useMemo(() => {
-    if (!search.trim()) return sessions
-    const lower = search.toLowerCase()
-    return sessions.filter(s => s.title.toLowerCase().includes(lower))
-  }, [sessions, search])
+    const source = search.trim().length >= 3 && searchResults ? searchResults : sessions
+    let result = source
+    if (tagFilter) {
+      result = result.filter(s => s.tags?.includes(tagFilter))
+    }
+    if (search.trim() && search.trim().length < 3) {
+      const lower = search.toLowerCase()
+      result = result.filter(s => s.title.toLowerCase().includes(lower))
+    }
+    // Pinned first
+    return [...result].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+  }, [sessions, search, tagFilter, searchResults])
 
   async function handleNewSession() {
     const session = await window.api.createSession(t('sidebar.newSession'))
@@ -43,7 +86,6 @@ export function SessionSidebar() {
 
   function handleSelectSession(session: Session) {
     setActiveSession(session.id)
-    // Only fetch from backend if not already loaded locally
     if (!messagesBySession[session.id]) {
       window.api.getMessages(session.id).then((msgs) => setMessages(session.id, msgs))
     }
@@ -74,6 +116,39 @@ export function SessionSidebar() {
   function cancelRename() {
     setEditingId(null)
     setEditTitle('')
+  }
+
+  // Phase 2 handlers
+  async function handleTogglePin(sessionId: string) {
+    const session = sessions.find(s => s.id === sessionId)
+    if (!session) return
+    const newPinned = !session.pinned
+    useSessionStore.getState().togglePin(sessionId)
+    try { await window.api.updateSession(sessionId, { pinned: newPinned }) } catch {}
+  }
+
+  async function handleSaveTags(sessionId: string, tags: string[]) {
+    useSessionStore.getState().setTags(sessionId, tags)
+    try { await window.api.updateSession(sessionId, { tags }) } catch {}
+  }
+
+  function handleContextMenu(e: React.MouseEvent, sessionId: string) {
+    e.preventDefault()
+    setContextMenu({ sessionId, x: e.clientX, y: e.clientY })
+  }
+
+  async function handleExport(sessionId: string, format: 'md' | 'json') {
+    try {
+      const result = await window.api.exportSession(sessionId, format)
+      if (result?.success) {
+        const filename = result.path?.split(/[/\\]/).pop() || '文件'
+        useToastStore.getState().addToast(`✅ 已导出到 ${filename}`, 'success')
+      } else {
+        useToastStore.getState().addToast(result?.error || '导出失败', 'error')
+      }
+    } catch {
+      useToastStore.getState().addToast('导出失败', 'error')
+    }
   }
 
   return (
@@ -108,12 +183,40 @@ export function SessionSidebar() {
             </button>
           )}
         </div>
-        {search && (
+        {searching && (
+          <p className="text-[10px] text-text-muted mt-0.5 px-0.5">搜索中...</p>
+        )}
+        {search && !searching && (
           <p className="text-[10px] text-text-muted mt-0.5 px-0.5">
             {t('sidebar.searchResults', { filtered: filteredSessions.length, total: sessions.length })}
           </p>
         )}
       </div>
+
+      {/* Tag filter bar */}
+      {allTags.length > 0 && !search && (
+        <div className="px-2 py-1 border-b border-hover flex flex-wrap gap-1">
+          <button
+            onClick={() => setTagFilter(null)}
+            className={`px-1.5 py-0.5 rounded text-[9px] transition-colors ${
+              !tagFilter ? 'bg-primary text-white' : 'bg-hover text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            全部
+          </button>
+          {allTags.map(tag => (
+            <button
+              key={tag}
+              onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              className={`px-1.5 py-0.5 rounded text-[9px] transition-colors ${
+                tagFilter === tag ? 'bg-primary text-white' : 'bg-hover text-text-muted hover:text-text-secondary'
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 && (
@@ -139,6 +242,7 @@ export function SessionSidebar() {
           <button
             key={session.id}
             onClick={() => handleSelectSession(session)}
+            onContextMenu={(e) => handleContextMenu(e, session.id)}
             onMouseEnter={() => setHoveredId(session.id)}
             onMouseLeave={() => setHoveredId(null)}
             className={`w-full text-left p-3 rounded-lg mb-1 transition-colors group relative ${
@@ -167,6 +271,8 @@ export function SessionSidebar() {
                   onDoubleClick={(e) => { e.stopPropagation(); handleDoubleClick(session) }}
                   title={t('sidebar.rename')}
                 >
+                  {session.pinned && <span className="text-yellow-400 mr-1" title="已置顶">📌</span>}
+                  {session.parentSessionId && <span className="text-text-muted mr-1" title="分支对话">🌿</span>}
                   {session.title}
                 </span>
               )}
@@ -192,11 +298,106 @@ export function SessionSidebar() {
               </div>
             </div>
             <p className="text-xs text-text-muted mt-1">
-              {t('sidebar.messages', { count: session.messageCount })}
+              💬 {t('sidebar.messages', { count: session.messageCount })}
+              {session.updatedAt && ` · ${new Date(session.updatedAt).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}`}
             </p>
+            {session.tags && session.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {session.tags.map(tag => (
+                  <span key={tag} className="px-1 py-0.5 bg-hover rounded text-[9px] text-text-muted">{tag}</span>
+                ))}
+              </div>
+            )}
           </button>
         ))}
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <SessionContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={[
+            {
+              label: sessions.find(s => s.id === contextMenu.sessionId)?.pinned ? '取消置顶' : '📌 置顶',
+              icon: '📌',
+              action: () => handleTogglePin(contextMenu.sessionId),
+            },
+            {
+              label: '🏷️ 编辑标签',
+              icon: '🏷️',
+              action: () => {
+                const session = sessions.find(s => s.id === contextMenu.sessionId)
+                setTagInput(session?.tags?.join(', ') || '')
+                setEditingTags(contextMenu.sessionId)
+              },
+            },
+            {
+              label: '📤 导出 Markdown',
+              icon: '📝',
+              action: () => handleExport(contextMenu.sessionId, 'md'),
+            },
+            {
+              label: '📤 导出 JSON',
+              icon: '📋',
+              action: () => handleExport(contextMenu.sessionId, 'json'),
+            },
+            { separator: true, label: '', icon: '', action: () => {} },
+            {
+              label: '🗑️ 删除会话',
+              icon: '🗑️',
+              action: () => {
+                window.api.deleteSession(contextMenu.sessionId)
+                useSessionStore.getState().removeSession(contextMenu.sessionId)
+              },
+              danger: true,
+            },
+          ]}
+        />
+      )}
+
+      {/* Tag editor modal */}
+      {editingTags && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setEditingTags(null)} />
+          <div className="relative bg-surface rounded-xl shadow-2xl border border-hover p-4 w-[320px] animate-scaleIn">
+            <h4 className="text-xs font-semibold text-text-primary mb-3">编辑标签</h4>
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean)
+                  handleSaveTags(editingTags, tags)
+                  setEditingTags(null)
+                  setTagInput('')
+                }
+                if (e.key === 'Escape') { setEditingTags(null); setTagInput('') }
+              }}
+              placeholder="react, api, debug (逗号分隔)"
+              className="w-full bg-elevated border border-hover rounded-lg px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary mb-3"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setEditingTags(null); setTagInput('') }}
+                className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary rounded-lg transition-colors">
+                取消
+              </button>
+              <button onClick={() => {
+                const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean)
+                handleSaveTags(editingTags, tags)
+                setEditingTags(null)
+                setTagInput('')
+              }}
+                className="px-3 py-1.5 bg-primary text-white text-xs rounded-lg hover:opacity-90 transition-opacity">
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
