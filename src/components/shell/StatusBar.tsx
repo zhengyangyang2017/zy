@@ -4,6 +4,7 @@ import { useSessionStore } from '../../stores/sessionStore'
 import { useEffect, useState, useMemo } from 'react'
 import { useChatStore } from '../../stores/chatStore'
 import { TokenUsagePopover, getTokenColor, estimateTokens, MAX_TOKENS } from '../chat/TokenUsagePopover'
+import { useClusterStore } from '../../stores/clusterStore'
 import type { LicenseStatus } from '../../types/license'
 
 export function StatusBar() {
@@ -109,9 +110,13 @@ export function StatusBar() {
       {/* Agent cluster */}
       {agentCount > 0 && (
         <>
-          <span className="text-text-muted flex items-center gap-1">
+          <button
+            onClick={() => useClusterStore.getState().toggleDashboard()}
+            className="text-text-muted flex items-center gap-1 hover:text-text-secondary hover:bg-hover px-1 py-0.5 rounded transition-colors"
+            title="点击打开 Agent 仪表盘"
+          >
             🤖 {activeAgents}/{agentCount} agents
-          </span>
+          </button>
           <span className="text-text-muted/30">|</span>
         </>
       )}

@@ -4,9 +4,11 @@ import { MainPanel } from './components/panels/MainPanel'
 import { BottomPanel } from './components/panels/BottomPanel'
 import { SettingsPanel } from './components/panels/SettingsPanel'
 import { FeedbackPanel } from './components/panels/FeedbackPanel'
+import { ClusterDashboard } from './components/panels/ClusterDashboard'
 import { CommandPalette } from './components/command/CommandPalette'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { usePanelStore } from './stores/panelStore'
+import { useClusterStore } from './stores/clusterStore'
 import { useKeyboard } from './hooks/useKeyboard'
 import { useTheme } from './hooks/useTheme'
 
@@ -21,6 +23,8 @@ export default function App() {
     feedbackOpen, toggleFeedback,
     setSidebarWidth, setBottomPanelHeight,
   } = usePanelStore()
+
+  const { dashboardOpen, setDashboardOpen } = useClusterStore()
 
   return (
     <ErrorBoundary name="AppRoot">
@@ -71,6 +75,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {dashboardOpen && <ClusterDashboard onClose={() => setDashboardOpen(false)} />}
     </ErrorBoundary>
   )
 }
