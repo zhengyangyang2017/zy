@@ -7,6 +7,7 @@ import { FeedbackPanel } from './components/panels/FeedbackPanel'
 import { ClusterDashboard } from './components/panels/ClusterDashboard'
 import { CommandPalette } from './components/command/CommandPalette'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { ToastContainer } from './components/ui/Toast'
 import { usePanelStore } from './stores/panelStore'
 import { useClusterStore } from './stores/clusterStore'
 import { useKeyboard } from './hooks/useKeyboard'
@@ -77,6 +78,7 @@ export default function App() {
       )}
 
       {dashboardOpen && <ClusterDashboard onClose={() => setDashboardOpen(false)} />}
+      <ToastContainer />
     </ErrorBoundary>
   )
 }
