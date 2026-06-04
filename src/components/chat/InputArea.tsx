@@ -4,6 +4,11 @@ import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Message } from '../../types'
 
+interface Props {
+  editingMessage?: Message | null
+  onEditComplete?: () => void
+}
+
 interface SelectedFile {
   name: string
   path: string
@@ -21,12 +26,13 @@ function formatSize(bytes: number): string {
 const MAX_FILE = 20 * 1024 * 1024   // 20MB max read
 const MAX_SEND = 100 * 1024         // 100KB sent to AI per file
 
-export function InputArea() {
+export function InputArea({ editingMessage, onEditComplete }: Props) {
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<SelectedFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const { t } = useI18n()
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const { addMessage, appendToStream, commitStream, setStreaming, clearStream } =
@@ -48,6 +54,14 @@ export function InputArea() {
     setStreaming(activeSessionId, false)
     setTimeout(() => setAborting(false), 500)
   }, [activeSessionId, clearStream, setStreaming])
+
+  // Watch for editing message changes
+  useEffect(() => {
+    if (editingMessage) {
+      setInput(editingMessage.content)
+      setEditingMessageId(editingMessage.id)
+    }
+  }, [editingMessage])
 
   // Register stream event listeners
   useEffect(() => {
@@ -147,6 +161,7 @@ export function InputArea() {
     addMessage(activeSessionId, userMsg)
     try { window.api.saveMessage(activeSessionId, userMsg).catch(() => {}) } catch { }
     setFiles([])
+    setEditingMessageId(null)
     setStreaming(activeSessionId, true)
 
     const msgs = useChatStore.getState().messagesBySession[activeSessionId] ?? []
@@ -165,6 +180,12 @@ export function InputArea() {
   }, [input, files, activeSessionId])
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape' && editingMessageId) {
+      e.preventDefault()
+      setInput('')
+      setEditingMessageId(null)
+      return
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -298,7 +319,7 @@ export function InputArea() {
             disabled={(!input.trim() && files.length === 0) || isStreaming}
             className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0"
           >
-            发送
+            {editingMessageId ? '更新' : '发送'}
           </button>
         )}
       </div>
