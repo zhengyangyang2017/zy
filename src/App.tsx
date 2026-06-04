@@ -1,7 +1,6 @@
 import { AppShell } from './components/shell/AppShell'
 import { SessionSidebar } from './components/panels/SessionSidebar'
 import { MainPanel } from './components/panels/MainPanel'
-import { RightPanel } from './components/panels/RightPanel'
 import { BottomPanel } from './components/panels/BottomPanel'
 import { SettingsPanel } from './components/panels/SettingsPanel'
 import { FeedbackPanel } from './components/panels/FeedbackPanel'
@@ -17,11 +16,10 @@ export default function App() {
 
   const {
     sidebarOpen, sidebarWidth,
-    rightPanelOpen, rightPanelWidth,
     bottomPanelOpen, bottomPanelHeight,
     settingsOpen, toggleSettings,
     feedbackOpen, toggleFeedback,
-    setSidebarWidth, setRightPanelWidth, setBottomPanelHeight,
+    setSidebarWidth, setBottomPanelHeight,
   } = usePanelStore()
 
   return (
@@ -37,23 +35,15 @@ export default function App() {
             <MainPanel />
           </ErrorBoundary>
         }
-        rightPanel={
-          <ErrorBoundary name="RightPanel">
-            <RightPanel />
-          </ErrorBoundary>
-        }
         bottomPanel={
           <ErrorBoundary name="BottomPanel">
             <BottomPanel />
           </ErrorBoundary>
         }
         sidebarWidth={sidebarOpen ? sidebarWidth : 0}
-        rightPanelWidth={rightPanelWidth}
-        rightPanelOpen={rightPanelOpen}
         bottomPanelOpen={bottomPanelOpen}
         bottomPanelHeight={bottomPanelHeight}
         onResizeSidebar={setSidebarWidth}
-        onResizeRightPanel={setRightPanelWidth}
         onResizeBottomPanel={setBottomPanelHeight}
       />
       <ErrorBoundary name="CommandPalette">
