@@ -7,6 +7,7 @@
  */
 
 import { Component, type ReactNode, type ErrorInfo } from 'react'
+import { useI18n } from '../../i18n'
 
 interface Props {
   children: ReactNode
@@ -43,15 +44,17 @@ export function ErrorFallback({
   boundaryName: string
   onReset: () => void
 }) {
+  const { t } = useI18n()
+
   return (
     <div className="flex items-center justify-center h-full bg-base p-6">
       <div className="max-w-md text-center">
         <p className="text-3xl mb-3">⚠️</p>
         <h2 className="text-sm font-semibold text-text-primary mb-2">
-          组件加载异常
+          {t('error.componentError')}
         </h2>
         <p className="text-xs text-text-muted mb-1">
-          模块: {boundaryName}
+          {t('error.module')}: {boundaryName}
         </p>
         {error && (
           <p className="text-xs text-error mb-4 font-mono bg-surface rounded-lg p-2 max-h-24 overflow-y-auto">
@@ -62,7 +65,7 @@ export function ErrorFallback({
           onClick={onReset}
           className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
         >
-          重试
+          {t('error.retry')}
         </button>
       </div>
     </div>

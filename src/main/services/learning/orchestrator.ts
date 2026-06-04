@@ -16,6 +16,7 @@ import { getDb } from '../../db'
 import { enqueueTask } from './scheduler'
 import { researchTopic } from './research-agent'
 import { getActiveStrategiesContext } from './evolution-agent'
+import { getLicenseStatus } from '../license'
 
 const BUFFER_THRESHOLD = 10 // trigger memory extraction every N messages
 const MAX_CONTEXT_TOKENS = 2000 // rough character limit for injected context
@@ -38,6 +39,12 @@ export async function onConversationTurn(
   userMessage: string,
   assistantResponse: string
 ): Promise<void> {
+  // Gate: only Pro/Enterprise users get knowledge extraction
+  const { tier } = getLicenseStatus()
+  if (tier === 'free') {
+    return // Free tier: skip knowledge graph extraction entirely
+  }
+
   const buffer = sessionBuffer.get(sessionId) || []
   const now = new Date().toISOString()
 
@@ -75,6 +82,9 @@ export async function onSessionEnd(sessionId: string): Promise<void> {
  * Returns text to inject into the system prompt.
  */
 export async function getContextAugmentation(query: string): Promise<string> {
+  const { tier } = getLicenseStatus()
+  if (tier === 'free') return ''
+
   const nodeCount = getNodeCount()
   if (nodeCount === 0) return ''
 
@@ -153,6 +163,9 @@ export function getKnowledgeStats() {
  * Start a research task immediately (from user command).
  */
 export async function startResearch(topic: string, depth: number = 2): Promise<string> {
+  const { tier } = getLicenseStatus()
+  if (tier === 'free') return ''
+
   const taskId = enqueueTask(topic, 0.9, depth)
   // Also execute immediately
   researchTopic(topic, depth).catch(err =>
@@ -166,6 +179,9 @@ export async function startResearch(topic: string, depth: number = 2): Promise<s
  * Called when retrieval returns no results for a substantive query.
  */
 export function detectKnowledgeGap(query: string): void {
+  const { tier } = getLicenseStatus()
+  if (tier === 'free') return
+
   // Only auto-research if query looks substantive (> 20 chars, contains technical terms)
   if (query.length < 20) return
 

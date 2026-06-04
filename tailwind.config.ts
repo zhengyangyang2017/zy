@@ -20,6 +20,10 @@ export default {
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+      },
+      animation: {
+        'fadeIn': 'fadeIn 150ms ease-out',
+        'scaleIn': 'scaleIn 200ms ease-out',
       }
     }
   },

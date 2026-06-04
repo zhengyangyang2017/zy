@@ -1,7 +1,3 @@
-/**
- * Chinese (Simplified) locale — all UI strings centralized here.
- */
-
 const zhCN = {
   app: { title: 'Claude Code' },
   sidebar: {
@@ -11,6 +7,9 @@ const zhCN = {
     delete: '删除会话',
     rename: '双击重命名',
     messages: '{count} 条消息',
+    search: '搜索会话...',
+    searchResults: '{filtered} / {total} 个会话',
+    noMatch: '没有匹配的会话',
   },
   chat: {
     placeholder: '输入消息，Shift+Enter 换行，Enter 发送...',
@@ -20,6 +19,17 @@ const zhCN = {
     empty: '开始对话吧',
     noSession: '选择或创建一个会话开始',
     thinking: 'Agent 集群处理中...',
+    userAvatar: 'Y',
+  },
+  codeBlock: {
+    copy: '复制',
+    copied: '已复制',
+  },
+  input: {
+    placeholder: '输入消息...',
+    attachFile: '添加文件',
+    dropFiles: '释放文件以上传',
+    error: '发送失败',
   },
   files: {
     title: '文件',
@@ -32,14 +42,25 @@ const zhCN = {
     rootError: '无法获取项目路径',
     dirError: '无法读取目录: {name}',
     back: '← 返回',
+    truncated: '... (已截断)',
   },
   tasks: {
     title: '任务',
-    placeholder: '输入研究主题...',
+    placeholder: '添加研究主题...',
     empty: '暂无任务，在上方输入框添加研究主题',
     noMatch: '没有匹配的任务',
-    priority: '优先级',
-    status: '状态',
+    autoHint: 'AI 会在对话中自动发现知识盲区并创建研究任务',
+    all: '全部',
+    inProgress: '进行中',
+    done: '已完成',
+    depth: '深度',
+    sources: '源',
+    highPriority: '⚡高优先',
+    knowledgeStats: '🧠 节点 {nodes}  🔗 边 {edges}',
+    statusPending: '等待中',
+    statusResearching: '研究中',
+    statusCompleted: '已完成',
+    statusFailed: '失败',
   },
   git: {
     title: 'Git',
@@ -51,6 +72,8 @@ const zhCN = {
     noChanges: '无变更',
     diffError: '无法加载 diff',
     statusError: 'Git 状态获取失败',
+    back: '← 返回',
+    changesCount: '变更 ({n})',
   },
   terminal: {
     title: '终端',
@@ -75,6 +98,20 @@ const zhCN = {
     taskComplete: 'Agent 集群任务完成',
     taskFailed: 'Agent 集群任务失败',
     taskDispatched: '已向集群提交 {count} 个任务：{types}',
+    agents: '{count} agents',
+    statusIdle: '空闲',
+    statusWorking: '工作',
+    statusError: '异常',
+    statusRestarting: '重启中',
+    statusDead: '死亡',
+    agentDetail: {
+      status: '状态',
+      role: '角色',
+      tasksCompleted: '任务完成',
+      tasksFailed: '任务失败',
+      avgTime: '平均耗时',
+      currentTask: '当前任务',
+    },
   },
   settings: {
     title: '设置',
@@ -87,6 +124,7 @@ const zhCN = {
     dark: '深色',
     light: '浅色',
     fontSize: '字号',
+    language: '界面语言',
     export: '数据导出',
     exportKnowledge: '导出知识图谱 (JSON)',
     exportHint: '会话导出请在会话列表中使用右键菜单',
@@ -97,6 +135,7 @@ const zhCN = {
     saveError: '保存失败',
     configRef: '常用配置参考',
     localOnly: '配置保存在本地，不会上传',
+    seedData: '生成测试数据',
   },
   command: {
     searchPlaceholder: '搜索命令或消息...',
@@ -111,6 +150,7 @@ const zhCN = {
     terminal: '终端',
     settings: '设置',
     toggleTheme: '切换主题',
+    feedback: '反馈与报错',
   },
   error: {
     componentError: '组件加载异常',
@@ -119,13 +159,37 @@ const zhCN = {
     apiKeyMissing: 'API key 未配置',
     sendFailed: '发送失败',
     fileReadError: '无法读取文件',
-    fileTooLarge: '文件过大',
+    fileTooLarge: '文件过大 ({size}MB > 20MB)',
+    commandFailed: '无法执行命令',
   },
   export: {
     sessionTitle: '导出会话',
     knowledgeTitle: '导出知识图谱',
     cancelled: '已取消',
     failed: '导出失败',
+  },
+  feedback: {
+    title: '反馈与报错',
+    description: '描述您遇到的问题或建议',
+    placeholder: '请详细描述...',
+    diagnostics: '包含系统诊断信息（OS、版本、最近错误日志）',
+    submit: '提交',
+    cancel: '取消',
+    submitting: '提交中...',
+    thanks: '感谢您的反馈！',
+    error: '提交失败',
+  },
+  statusBar: {
+    files: '项目文件',
+    tasks: '任务面板',
+    git: 'Git 状态',
+    terminal: '终端',
+  },
+  panels: {
+    files: '📁 文件',
+    tasks: '📋 任务',
+    git: '🔀 Git',
+    cluster: '🖧 集群',
   },
 }
 

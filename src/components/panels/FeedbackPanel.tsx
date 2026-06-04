@@ -8,12 +8,14 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useI18n } from '../../i18n'
 
 interface Props {
   onClose: () => void
 }
 
 export function FeedbackPanel({ onClose }: Props) {
+  const { t } = useI18n()
   const [message, setMessage] = useState('')
   const [includeDiagnostics, setIncludeDiagnostics] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -26,26 +28,16 @@ export function FeedbackPanel({ onClose }: Props) {
     setError(null)
 
     try {
-      // Gather diagnostics
       const diag = includeDiagnostics
         ? `OS: ${navigator.platform} | UA: ${navigator.userAgent.slice(0, 100)} | Time: ${new Date().toISOString()}`
         : ''
 
-      // Persist feedback via diagnostic IPC
-      const feedbackPayload = {
-        type: 'user_feedback',
-        message: message.slice(0, 2000),
-        diagnostics: diag,
-        timestamp: new Date().toISOString(),
-      }
-
-      // Log to console (can be exported later)
-      console.log('[Feedback]', JSON.stringify(feedbackPayload))
+      await window.api.submitFeedback(message.slice(0, 2000), diag)
 
       setDone(true)
       setTimeout(() => onClose(), 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '提交失败')
+      setError(err instanceof Error ? err.message : t('feedback.error'))
     }
     setSubmitting(false)
   }
@@ -54,12 +46,12 @@ export function FeedbackPanel({ onClose }: Props) {
     <div className="flex flex-col h-full bg-surface">
       <div className="flex items-center justify-between px-3 py-2 border-b border-hover">
         <span className="text-xs text-text-secondary font-medium" role="heading" aria-level={2}>
-          🐛 反馈与报错
+          🐛 {t('feedback.title')}
         </span>
         <button
           onClick={onClose}
           className="text-text-muted hover:text-text-primary text-sm"
-          aria-label="关闭反馈面板"
+          aria-label={t('feedback.cancel')}
         >
           ✕
         </button>
@@ -69,18 +61,18 @@ export function FeedbackPanel({ onClose }: Props) {
         {done ? (
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <span className="text-2xl">✅</span>
-            <p className="text-xs text-text-secondary">感谢您的反馈！</p>
+            <p className="text-xs text-text-secondary">{t('feedback.thanks')}</p>
           </div>
         ) : (
           <>
-            <label className="block" aria-label="反馈内容">
-              <span className="text-[10px] text-text-muted">描述您遇到的问题或建议</span>
+            <label className="block" aria-label={t('feedback.title')}>
+              <span className="text-[10px] text-text-muted">{t('feedback.description')}</span>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="请详细描述..."
+                placeholder={t('feedback.placeholder')}
                 rows={5}
-                aria-label="反馈描述"
+                aria-label={t('feedback.description')}
                 className="w-full bg-elevated border border-hover rounded-lg px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary resize-none mt-1"
               />
             </label>
@@ -91,10 +83,10 @@ export function FeedbackPanel({ onClose }: Props) {
                 checked={includeDiagnostics}
                 onChange={(e) => setIncludeDiagnostics(e.target.checked)}
                 className="accent-primary"
-                aria-label="包含诊断信息"
+                aria-label={t('feedback.diagnostics')}
               />
               <span className="text-[10px] text-text-muted">
-                包含系统诊断信息（OS、版本、最近错误日志）
+                {t('feedback.diagnostics')}
               </span>
             </label>
 
@@ -111,15 +103,15 @@ export function FeedbackPanel({ onClose }: Props) {
             onClick={onClose}
             className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
           >
-            取消
+            {t('feedback.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             disabled={!message.trim() || submitting}
             className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
-            aria-label="提交反馈"
+            aria-label={t('feedback.submit')}
           >
-            {submitting ? '提交中...' : '提交'}
+            {submitting ? t('feedback.submitting') : t('feedback.submit')}
           </button>
         </div>
       )}

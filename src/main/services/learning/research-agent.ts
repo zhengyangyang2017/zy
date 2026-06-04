@@ -16,14 +16,11 @@
  */
 
 import https from 'https'
-import { IncomingMessage } from 'http'
 import { createNode, createEdge, getNode, getNodeByTitle } from './knowledge-graph'
 import { embed } from './embeddings'
 import { computeLSHKeys, LSHIndex } from './lsh'
 import { getDb, type LearningTaskRow } from '../../db'
-
-const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || ''
-const baseUrl = import.meta.env.VITE_API_BASE_URL || process.env.VITE_API_BASE_URL || ''
+import { callLLM } from '../llm-client'
 
 const DAILY_API_CAP = 200 // max LLM calls per day for research
 const EARLY_STOP_OVERLAP = 0.7 // stop if overlap with existing knowledge > 70%
@@ -353,7 +350,12 @@ JSON:`
 
   apiCallsToday++
   try {
-    const response = await callLLM(prompt)
+    const response = await callLLM({
+      systemPrompt: 'You are a research synthesis AI. Return only valid JSON arrays.',
+      userPrompt: prompt,
+      maxTokens: 2000,
+      temperature: 0.1,
+    })
     const jsonMatch = response.match(/\[[\s\S]*\]/)
     if (!jsonMatch) return []
     const parsed = JSON.parse(jsonMatch[0])
@@ -405,58 +407,6 @@ function httpGet(hostname: string, path: string): Promise<string> {
   })
 }
 
-// ============================================
-// LLM API call (shared with memory-agent pattern)
-// ============================================
-
-async function callLLM(prompt: string): Promise<string> {
-  const hostname = baseUrl ? new URL(baseUrl).hostname : 'api.deepseek.com'
-  const path = baseUrl ? `${new URL(baseUrl).pathname}/chat/completions` : '/anthropic/v1/chat/completions'
-  const model = import.meta.env.VITE_MODEL_NAME || process.env.VITE_MODEL_NAME || 'deepseek-v4-pro'
-
-  const body = JSON.stringify({
-    model,
-    messages: [
-      { role: 'system', content: 'You are a research synthesis AI. Return only valid JSON arrays.' },
-      { role: 'user', content: prompt }
-    ],
-    max_tokens: 2000,
-    temperature: 0.1,
-  })
-
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname,
-      path,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Length': String(Buffer.byteLength(body)),
-      },
-    }, (resp: IncomingMessage) => {
-      const chunks: Buffer[] = []
-      resp.on('data', (chunk: Buffer) => chunks.push(chunk))
-      resp.on('end', () => {
-        const raw = Buffer.concat(chunks).toString()
-        if (resp.statusCode !== 200) {
-          reject(new Error(`LLM call failed: ${resp.statusCode}`))
-          return
-        }
-        try {
-          const json = JSON.parse(raw)
-          resolve(json.choices?.[0]?.message?.content || '')
-        } catch {
-          reject(new Error('Failed to parse LLM response'))
-        }
-      })
-    })
-
-    req.on('error', reject)
-    req.write(body)
-    req.end()
-  })
-}
 
 /**
  * Research from a learning task row.

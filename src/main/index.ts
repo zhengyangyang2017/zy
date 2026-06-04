@@ -1,5 +1,5 @@
 import { app, BrowserWindow, shell } from 'electron'
-import { join } from 'path'
+import { join, resolve } from 'path'
 import { registerIpcHandlers } from './ipc'
 import { startScheduler, stopScheduler } from './services/learning/scheduler'
 import { seedFromProject } from './services/learning/cold-start'
@@ -19,6 +19,8 @@ import { runMigrations } from './services/migrations'
 import { initCrashReporter, shouldStartSafeMode } from './services/crash-reporter'
 import { initAutoUpdater, startPeriodicUpdateCheck, stopPeriodicUpdateCheck } from './services/auto-updater'
 import { initOfflineMonitor, stopOfflineMonitor } from './services/offline-monitor'
+import { destroyAllSessions } from './services/terminal'
+import { initLicense, shutdownLicense, getLicenseStatus } from './services/license'
 import { getDb } from './db'
 
 let mainWindow: BrowserWindow | null = null
@@ -63,6 +65,60 @@ function createWindow(): void {
   }
 }
 
+// Register custom protocol for license activation
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('codebuddy', process.execPath, [resolve(process.argv[1])])
+  }
+} else {
+  app.setAsDefaultProtocolClient('codebuddy')
+}
+
+// Handle custom protocol on macOS
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleActivationUrl(url)
+})
+
+// Single instance lock + Windows/Linux protocol handling
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const url = commandLine.find(arg => arg.startsWith('codebuddy://'))
+    if (url) handleActivationUrl(url)
+    // Focus existing window
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
+function handleActivationUrl(url: string): void {
+  try {
+    const parsed = new URL(url)
+    if (parsed.pathname === 'activate' || parsed.hostname === 'activate') {
+      const token = parsed.searchParams.get('token')
+      if (token) {
+        import('./services/license').then(({ activateLicense }) => {
+          activateLicense(token).then(status => {
+            logger.info('Main', `Activated via protocol: tier=${status.tier}`)
+            if (mainWindow) {
+              mainWindow.webContents.send('license:activated', status)
+            }
+          }).catch(err => {
+            logger.error('Main', 'Protocol activation failed:', err)
+          })
+        })
+      }
+    }
+  } catch (err) {
+    logger.error('Main', 'Invalid activation URL:', err)
+  }
+}
+
 app.whenReady().then(() => {
   // Initialize crash reporter first
   initCrashReporter()
@@ -83,6 +139,14 @@ app.whenReady().then(() => {
   }
 
   registerIpcHandlers()
+
+  // Initialize license (trial or stored tokens)
+  initLicense().then(status => {
+    logger.info('Main', `License: tier=${status.tier} trial=${status.trial}`)
+  }).catch(err => {
+    logger.error('Main', 'License init failed:', err)
+  })
+
   createWindow()
 
   // Initialize auto-updater
@@ -98,8 +162,10 @@ app.whenReady().then(() => {
   // Start agent cluster (lazy-loaded, skip in safe mode)
   if (!safeMode) {
     loadCluster().then(() => {
-      startCluster!().then(() => {
-        logger.info('Main', 'Agent cluster started')
+      const { tier } = getLicenseStatus()
+      const agentCount = tier === 'pro' || tier === 'enterprise' ? 20 : 3
+      startCluster!({ agentCount }).then(() => {
+        logger.info('Main', `Agent cluster started with ${agentCount} agents (tier=${tier})`)
       }).catch((err: Error) => {
         logger.error('Main', 'Agent cluster start failed:', err)
       })
@@ -121,7 +187,9 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   stopPeriodicUpdateCheck()
   stopOfflineMonitor()
+  shutdownLicense()
   stopScheduler()
+  destroyAllSessions()
   if (stopCluster) stopCluster().catch(() => {})
   if (process.platform !== 'darwin') app.quit()
 })

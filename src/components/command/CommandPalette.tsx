@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePanelStore } from '../../stores/panelStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useSessionStore } from '../../stores/sessionStore'
+import { useI18n } from '../../i18n'
 
 interface Command {
   id: string
@@ -31,19 +32,20 @@ export function CommandPalette() {
   const { toggleSidebar, toggleRightPanelTab, toggleBottomPanel, toggleSettings, toggleFeedback } = usePanelStore()
   const toggleTheme = useSettingsStore((s) => s.toggleTheme)
   const setActiveSession = useSessionStore((s) => s.setActiveSession)
+  const { t } = useI18n()
 
   const isMac = navigator.platform.toLowerCase().includes('mac')
   const mod = isMac ? '⌘' : 'Ctrl+'
   const shift = isMac ? '⇧' : 'Shift+'
 
   const commands: Command[] = [
-    { id: 'sidebar', label: '切换侧边栏', shortcut: `${mod}B`, action: toggleSidebar },
-    { id: 'files', label: '文件浏览器', shortcut: `${mod}${shift}E`, action: () => toggleRightPanelTab('files') },
-    { id: 'tasks', label: '任务面板', shortcut: `${mod}${shift}T`, action: () => toggleRightPanelTab('tasks') },
-    { id: 'terminal', label: '终端', shortcut: `${mod}\``, action: toggleBottomPanel },
-    { id: 'settings', label: '设置', shortcut: `${mod},`, action: toggleSettings },
-    { id: 'feedback', label: '反馈与报错', action: toggleFeedback },
-    { id: 'theme', label: '切换主题', action: toggleTheme },
+    { id: 'sidebar', label: t('command.toggleSidebar'), shortcut: `${mod}B`, action: toggleSidebar },
+    { id: 'files', label: t('command.fileBrowser'), shortcut: `${mod}${shift}E`, action: () => toggleRightPanelTab('files') },
+    { id: 'tasks', label: t('command.tasksPanel'), shortcut: `${mod}${shift}T`, action: () => toggleRightPanelTab('tasks') },
+    { id: 'terminal', label: t('command.terminal'), shortcut: `${mod}\``, action: toggleBottomPanel },
+    { id: 'settings', label: t('command.settings'), shortcut: `${mod},`, action: toggleSettings },
+    { id: 'feedback', label: t('command.feedback'), action: toggleFeedback },
+    { id: 'theme', label: t('command.toggleTheme'), action: toggleTheme },
   ]
 
   const filtered = commands.filter((c) =>
@@ -134,7 +136,7 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => { setQuery(e.target.value); setSelectedIndex(0) }}
             onKeyDown={handleKeyDown}
-            placeholder="搜索命令或消息..."
+            placeholder={t('command.searchPlaceholder')}
             className="flex-1 bg-transparent text-sm text-text-primary placeholder-text-muted focus:outline-none"
           />
         </div>
@@ -142,7 +144,7 @@ export function CommandPalette() {
           {/* Commands */}
           {filtered.length > 0 && (
             <>
-              <p className="text-[10px] text-text-muted px-3 py-1 uppercase tracking-wider">命令</p>
+              <p className="text-[10px] text-text-muted px-3 py-1 uppercase tracking-wider">{t('command.commands')}</p>
               {filtered.map((cmd, i) => (
                 <button
                   key={cmd.id}
@@ -162,7 +164,7 @@ export function CommandPalette() {
           {searchResults.length > 0 && (
             <>
               <p className="text-[10px] text-text-muted px-3 py-1 mt-2 uppercase tracking-wider">
-                消息 ({searchResults.length})
+                {t('command.messages')} ({searchResults.length})
               </p>
               {searchResults.map((r, i) => {
                 const idx = filtered.length + 1 + i
@@ -187,15 +189,15 @@ export function CommandPalette() {
 
           {/* Searching indicator */}
           {searching && (
-            <p className="text-xs text-text-muted text-center py-3">搜索中...</p>
+            <p className="text-xs text-text-muted text-center py-3">{t('command.searching')}</p>
           )}
 
           {/* Empty state */}
           {filtered.length === 0 && searchResults.length === 0 && !searching && query.length > 0 && (
-            <p className="text-sm text-text-muted text-center py-6">无匹配结果</p>
+            <p className="text-sm text-text-muted text-center py-6">{t('command.noMatch')}</p>
           )}
           {filtered.length === 0 && query.length === 0 && (
-            <p className="text-sm text-text-muted text-center py-6">输入关键词搜索命令或消息</p>
+            <p className="text-sm text-text-muted text-center py-6">{t('command.emptyHint')}</p>
           )}
         </div>
       </div>

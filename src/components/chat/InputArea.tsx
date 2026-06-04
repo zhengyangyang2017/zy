@@ -1,7 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { useI18n } from '../../i18n'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Message } from '../../types'
+import { FileMentionDropdown } from './FileMentionDropdown'
+import { SlashCommandMenu, type Command } from './SlashCommandMenu'
+import { PromptTemplatePicker } from './PromptTemplatePicker'
+import type { PromptTemplate } from '../../types'
+
+interface Props {
+  editingMessage?: Message | null
+  onEditComplete?: () => void
+}
 
 interface SelectedFile {
   name: string
@@ -20,12 +30,20 @@ function formatSize(bytes: number): string {
 const MAX_FILE = 20 * 1024 * 1024   // 20MB max read
 const MAX_SEND = 100 * 1024         // 100KB sent to AI per file
 
-export function InputArea() {
+export function InputArea({ editingMessage, onEditComplete }: Props) {
   const [input, setInput] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [files, setFiles] = useState<SelectedFile[]>([])
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [showCommands, setShowCommands] = useState(false)
+  const [commandQuery, setCommandQuery] = useState('')
+  const [showTemplates, setShowTemplates] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { t } = useI18n()
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const { addMessage, appendToStream, commitStream, setStreaming, clearStream } =
     useChatStore()
@@ -46,6 +64,46 @@ export function InputArea() {
     setStreaming(activeSessionId, false)
     setTimeout(() => setAborting(false), 500)
   }, [activeSessionId, clearStream, setStreaming])
+
+  // Handler for @mention file selection
+  const handleFileSelect = useCallback(async (filePath: string) => {
+    const beforeAt = input.slice(0, input.lastIndexOf('@'))
+    setInput(beforeAt)
+    setShowMentions(false)
+    try {
+      const result = await window.api.readFileContent(filePath)
+      if (result?.content && !result.error) {
+        setFiles(prev => [...prev, {
+          name: filePath.split('/').pop() || filePath,
+          path: filePath,
+          content: result.content
+        }])
+      }
+    } catch { /* best-effort */ }
+  }, [input])
+
+  // Handler for /command selection
+  const handleCommandSelect = useCallback((cmd: Command) => {
+    const beforeSlash = input.slice(0, input.lastIndexOf('/'))
+    setInput(beforeSlash + cmd.promptPrefix)
+    setShowCommands(false)
+    textareaRef.current?.focus()
+  }, [input])
+
+  // Handler for template selection
+  const handleTemplateSelect = useCallback((tpl: PromptTemplate) => {
+    setInput(input + '\n' + tpl.prompt)
+    setShowTemplates(false)
+    textareaRef.current?.focus()
+  }, [input])
+
+  // Watch for editing message changes
+  useEffect(() => {
+    if (editingMessage) {
+      setInput(editingMessage.content)
+      setEditingMessageId(editingMessage.id)
+    }
+  }, [editingMessage])
 
   // Register stream event listeners
   useEffect(() => {
@@ -74,6 +132,26 @@ export function InputArea() {
 
     return () => { cleanup1(); cleanup2(); cleanup3() }
   }, [activeSessionId])
+
+  // Detect @mention and /command triggers
+  useEffect(() => {
+    const atMatch = input.match(/@(\S*)$/)
+    if (atMatch) {
+      setMentionQuery(atMatch[1])
+      setShowMentions(true)
+      setShowCommands(false)
+      return
+    }
+    setShowMentions(false)
+
+    const slashMatch = input.match(/(?:^|\s)\/(\S*)$/)
+    if (slashMatch) {
+      setCommandQuery(slashMatch[1])
+      setShowCommands(true)
+      return
+    }
+    setShowCommands(false)
+  }, [input])
 
   // Read file content from File object (drag-and-drop / paste)
   function readFileObject(file: File) {
@@ -145,6 +223,7 @@ export function InputArea() {
     addMessage(activeSessionId, userMsg)
     try { window.api.saveMessage(activeSessionId, userMsg).catch(() => {}) } catch { }
     setFiles([])
+    setEditingMessageId(null)
     setStreaming(activeSessionId, true)
 
     const msgs = useChatStore.getState().messagesBySession[activeSessionId] ?? []
@@ -155,7 +234,7 @@ export function InputArea() {
         messages: msgs.map((m) => ({ role: m.role, content: m.content }))
       })
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '发送失败'
+      const msg = err instanceof Error ? err.message : t('input.error')
       setError(msg)
       clearStream(activeSessionId)
       setStreaming(activeSessionId, false)
@@ -163,6 +242,24 @@ export function InputArea() {
   }, [input, files, activeSessionId])
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    // Ctrl+Shift+P for prompt templates
+    if (e.key === 'p' && e.ctrlKey && e.shiftKey) {
+      e.preventDefault()
+      setShowTemplates(!showTemplates)
+      return
+    }
+    // Escape to close menus, or cancel edit mode
+    if (e.key === 'Escape') {
+      if (editingMessageId) {
+        e.preventDefault()
+        setInput('')
+        setEditingMessageId(null)
+        return
+      }
+      setShowMentions(false)
+      setShowCommands(false)
+      setShowTemplates(false)
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -200,7 +297,7 @@ export function InputArea() {
     >
       {dragOver && (
         <div className="absolute inset-0 bg-primary/10 flex items-center justify-center z-10 pointer-events-none">
-          <span className="text-primary font-medium">释放文件以上传</span>
+          <span className="text-primary font-medium">{t('input.dropFiles')}</span>
         </div>
       )}
       {error && (
@@ -209,6 +306,36 @@ export function InputArea() {
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 ml-2">✕</button>
         </div>
       )}
+
+      {/* @ File mention dropdown */}
+      <div className="relative">
+        <FileMentionDropdown
+          isOpen={showMentions}
+          query={mentionQuery}
+          onSelect={handleFileSelect}
+          onClose={() => setShowMentions(false)}
+        />
+      </div>
+
+      {/* / Slash command menu */}
+      <div className="relative">
+        <SlashCommandMenu
+          isOpen={showCommands}
+          query={commandQuery}
+          onSelect={handleCommandSelect}
+          onClose={() => setShowCommands(false)}
+          position={{ top: 0, left: 0 }}
+        />
+      </div>
+
+      {/* Prompt template picker */}
+      <div className="relative">
+        <PromptTemplatePicker
+          isOpen={showTemplates}
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowTemplates(false)}
+        />
+      </div>
 
       {/* Selected files */}
       {files.length > 0 && (
@@ -254,16 +381,17 @@ export function InputArea() {
           onClick={handlePickFile}
           disabled={isStreaming || uploading}
           className="flex items-center gap-1 px-2.5 py-2.5 text-text-muted hover:text-text-primary hover:bg-hover disabled:opacity-30 rounded-lg transition-colors flex-shrink-0"
-          title="添加文件"
+          title={t('input.attachFile')}
         >
           <span className="text-base leading-none">{uploading ? '⏳' : '📎'}</span>
         </button>
 
         <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="输入消息，Shift+Enter 换行，Enter 发送..."
+          placeholder={t('input.placeholder')}
           rows={1}
           aria-label="输入消息"
           aria-multiline="true"
@@ -296,7 +424,7 @@ export function InputArea() {
             disabled={(!input.trim() && files.length === 0) || isStreaming}
             className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-40 transition-opacity flex-shrink-0"
           >
-            发送
+            {editingMessageId ? '更新' : '发送'}
           </button>
         )}
       </div>

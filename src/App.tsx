@@ -1,13 +1,15 @@
 import { AppShell } from './components/shell/AppShell'
 import { SessionSidebar } from './components/panels/SessionSidebar'
 import { MainPanel } from './components/panels/MainPanel'
-import { RightPanel } from './components/panels/RightPanel'
 import { BottomPanel } from './components/panels/BottomPanel'
 import { SettingsPanel } from './components/panels/SettingsPanel'
 import { FeedbackPanel } from './components/panels/FeedbackPanel'
+import { ClusterDashboard } from './components/panels/ClusterDashboard'
 import { CommandPalette } from './components/command/CommandPalette'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { ToastContainer } from './components/ui/Toast'
 import { usePanelStore } from './stores/panelStore'
+import { useClusterStore } from './stores/clusterStore'
 import { useKeyboard } from './hooks/useKeyboard'
 import { useTheme } from './hooks/useTheme'
 
@@ -17,11 +19,13 @@ export default function App() {
 
   const {
     sidebarOpen, sidebarWidth,
-    rightPanelOpen, rightPanelWidth,
     bottomPanelOpen, bottomPanelHeight,
     settingsOpen, toggleSettings,
     feedbackOpen, toggleFeedback,
+    setSidebarWidth, setBottomPanelHeight,
   } = usePanelStore()
+
+  const { dashboardOpen, setDashboardOpen } = useClusterStore()
 
   return (
     <ErrorBoundary name="AppRoot">
@@ -36,21 +40,16 @@ export default function App() {
             <MainPanel />
           </ErrorBoundary>
         }
-        rightPanel={
-          <ErrorBoundary name="RightPanel">
-            <RightPanel />
-          </ErrorBoundary>
-        }
         bottomPanel={
           <ErrorBoundary name="BottomPanel">
             <BottomPanel />
           </ErrorBoundary>
         }
         sidebarWidth={sidebarOpen ? sidebarWidth : 0}
-        rightPanelWidth={rightPanelWidth}
-        rightPanelOpen={rightPanelOpen}
         bottomPanelOpen={bottomPanelOpen}
         bottomPanelHeight={bottomPanelHeight}
+        onResizeSidebar={setSidebarWidth}
+        onResizeBottomPanel={setBottomPanelHeight}
       />
       <ErrorBoundary name="CommandPalette">
         <CommandPalette />
@@ -77,6 +76,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {dashboardOpen && <ClusterDashboard onClose={() => setDashboardOpen(false)} />}
+      <ToastContainer />
     </ErrorBoundary>
   )
 }
