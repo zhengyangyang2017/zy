@@ -117,14 +117,23 @@ export function SessionSidebar() {
 
       <div className="flex-1 overflow-y-auto p-2">
         {sessions.length === 0 && (
-          <p className="text-xs text-text-muted text-center mt-8">
-            {t('sidebar.empty')}
-          </p>
+          <div className="flex flex-col items-center justify-center text-center px-4 mt-12">
+            <p className="text-3xl mb-3">💬</p>
+            <p className="text-xs text-text-secondary mb-1">还没有会话</p>
+            <p className="text-[10px] text-text-muted mb-4">点击右上角 + 开始对话</p>
+            <button
+              onClick={handleNewSession}
+              className="px-4 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              创建第一个会话
+            </button>
+          </div>
         )}
         {sessions.length > 0 && filteredSessions.length === 0 && (
-          <p className="text-xs text-text-muted text-center mt-8">
-            {t('sidebar.noMatch')}
-          </p>
+          <div className="flex flex-col items-center justify-center text-center px-4 mt-12">
+            <p className="text-2xl mb-2">🔍</p>
+            <p className="text-xs text-text-secondary">{t('sidebar.noMatch')}</p>
+          </div>
         )}
         {filteredSessions.map((session) => (
           <button
