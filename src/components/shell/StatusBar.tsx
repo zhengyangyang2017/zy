@@ -1,7 +1,9 @@
 import { useI18n } from '../../i18n'
 import { usePanelStore } from '../../stores/panelStore'
 import { useSessionStore } from '../../stores/sessionStore'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useChatStore } from '../../stores/chatStore'
+import { TokenUsagePopover, getTokenColor, estimateTokens, MAX_TOKENS } from '../chat/TokenUsagePopover'
 import type { LicenseStatus } from '../../types/license'
 
 export function StatusBar() {
@@ -85,6 +87,15 @@ export function StatusBar() {
     setConnected(!!activeSessionId)
   }, [activeSessionId])
 
+  const [tokenPopoverOpen, setTokenPopoverOpen] = useState(false)
+  const messages = useChatStore((s) => activeSessionId ? (s.messagesBySession[activeSessionId] ?? []) : [])
+
+  const tokenStats = useMemo(() => {
+    let total = 0
+    for (const m of messages) total += estimateTokens(m.content)
+    return { total, pct: Math.round((total / MAX_TOKENS) * 100) }
+  }, [messages])
+
   return (
     <div className="flex items-center h-7 bg-surface border-t border-hover px-3 text-[10px] gap-2 select-none">
       {/* Connection status */}
@@ -140,6 +151,31 @@ export function StatusBar() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Token usage bar */}
+      {activeSessionId && tokenStats.total > 0 && (
+        <>
+          <div className="relative flex items-center gap-1.5">
+            <button
+              onClick={() => setTokenPopoverOpen(!tokenPopoverOpen)}
+              className="flex items-center gap-1 hover:bg-hover px-1 py-0.5 rounded transition-colors"
+              title="上下文使用情况"
+            >
+              <div className="w-16 h-1.5 bg-hover rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${getTokenColor(tokenStats.pct)}`}
+                  style={{ width: `${Math.min(tokenStats.pct, 100)}%` }}
+                />
+              </div>
+              <span className={`text-[9px] ${tokenStats.pct > 85 ? 'text-red-400' : tokenStats.pct > 60 ? 'text-yellow-400' : 'text-text-muted'}`}>
+                {Math.round(tokenStats.total / 1000)}K
+              </span>
+            </button>
+            <TokenUsagePopover isOpen={tokenPopoverOpen} onClose={() => setTokenPopoverOpen(false)} />
+          </div>
+          <span className="text-text-muted/30">|</span>
+        </>
+      )}
 
       {/* Terminal toggle */}
       <button
