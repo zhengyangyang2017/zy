@@ -3,6 +3,10 @@ import { useI18n } from '../../i18n'
 import { useSessionStore } from '../../stores/sessionStore'
 import { useChatStore } from '../../stores/chatStore'
 import type { Message } from '../../types'
+import { FileMentionDropdown } from './FileMentionDropdown'
+import { SlashCommandMenu, type Command } from './SlashCommandMenu'
+import { PromptTemplatePicker } from './PromptTemplatePicker'
+import type { PromptTemplate } from '../../types'
 
 interface Props {
   editingMessage?: Message | null
@@ -33,6 +37,12 @@ export function InputArea({ editingMessage, onEditComplete }: Props) {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [showMentions, setShowMentions] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState('')
+  const [showCommands, setShowCommands] = useState(false)
+  const [commandQuery, setCommandQuery] = useState('')
+  const [showTemplates, setShowTemplates] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { t } = useI18n()
   const activeSessionId = useSessionStore((s) => s.activeSessionId)
   const { addMessage, appendToStream, commitStream, setStreaming, clearStream } =
@@ -54,6 +64,38 @@ export function InputArea({ editingMessage, onEditComplete }: Props) {
     setStreaming(activeSessionId, false)
     setTimeout(() => setAborting(false), 500)
   }, [activeSessionId, clearStream, setStreaming])
+
+  // Handler for @mention file selection
+  const handleFileSelect = useCallback(async (filePath: string) => {
+    const beforeAt = input.slice(0, input.lastIndexOf('@'))
+    setInput(beforeAt)
+    setShowMentions(false)
+    try {
+      const result = await window.api.readFileContent(filePath)
+      if (result?.content && !result.error) {
+        setFiles(prev => [...prev, {
+          name: filePath.split('/').pop() || filePath,
+          path: filePath,
+          content: result.content
+        }])
+      }
+    } catch { /* best-effort */ }
+  }, [input])
+
+  // Handler for /command selection
+  const handleCommandSelect = useCallback((cmd: Command) => {
+    const beforeSlash = input.slice(0, input.lastIndexOf('/'))
+    setInput(beforeSlash + cmd.promptPrefix)
+    setShowCommands(false)
+    textareaRef.current?.focus()
+  }, [input])
+
+  // Handler for template selection
+  const handleTemplateSelect = useCallback((tpl: PromptTemplate) => {
+    setInput(input + '\n' + tpl.prompt)
+    setShowTemplates(false)
+    textareaRef.current?.focus()
+  }, [input])
 
   // Watch for editing message changes
   useEffect(() => {
@@ -90,6 +132,26 @@ export function InputArea({ editingMessage, onEditComplete }: Props) {
 
     return () => { cleanup1(); cleanup2(); cleanup3() }
   }, [activeSessionId])
+
+  // Detect @mention and /command triggers
+  useEffect(() => {
+    const atMatch = input.match(/@(\S*)$/)
+    if (atMatch) {
+      setMentionQuery(atMatch[1])
+      setShowMentions(true)
+      setShowCommands(false)
+      return
+    }
+    setShowMentions(false)
+
+    const slashMatch = input.match(/(?:^|\s)\/(\S*)$/)
+    if (slashMatch) {
+      setCommandQuery(slashMatch[1])
+      setShowCommands(true)
+      return
+    }
+    setShowCommands(false)
+  }, [input])
 
   // Read file content from File object (drag-and-drop / paste)
   function readFileObject(file: File) {
@@ -180,11 +242,23 @@ export function InputArea({ editingMessage, onEditComplete }: Props) {
   }, [input, files, activeSessionId])
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape' && editingMessageId) {
+    // Ctrl+Shift+P for prompt templates
+    if (e.key === 'p' && e.ctrlKey && e.shiftKey) {
       e.preventDefault()
-      setInput('')
-      setEditingMessageId(null)
+      setShowTemplates(!showTemplates)
       return
+    }
+    // Escape to close menus, or cancel edit mode
+    if (e.key === 'Escape') {
+      if (editingMessageId) {
+        e.preventDefault()
+        setInput('')
+        setEditingMessageId(null)
+        return
+      }
+      setShowMentions(false)
+      setShowCommands(false)
+      setShowTemplates(false)
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -232,6 +306,36 @@ export function InputArea({ editingMessage, onEditComplete }: Props) {
           <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 ml-2">✕</button>
         </div>
       )}
+
+      {/* @ File mention dropdown */}
+      <div className="relative">
+        <FileMentionDropdown
+          isOpen={showMentions}
+          query={mentionQuery}
+          onSelect={handleFileSelect}
+          onClose={() => setShowMentions(false)}
+        />
+      </div>
+
+      {/* / Slash command menu */}
+      <div className="relative">
+        <SlashCommandMenu
+          isOpen={showCommands}
+          query={commandQuery}
+          onSelect={handleCommandSelect}
+          onClose={() => setShowCommands(false)}
+          position={{ top: 0, left: 0 }}
+        />
+      </div>
+
+      {/* Prompt template picker */}
+      <div className="relative">
+        <PromptTemplatePicker
+          isOpen={showTemplates}
+          onSelect={handleTemplateSelect}
+          onClose={() => setShowTemplates(false)}
+        />
+      </div>
 
       {/* Selected files */}
       {files.length > 0 && (
@@ -283,6 +387,7 @@ export function InputArea({ editingMessage, onEditComplete }: Props) {
         </button>
 
         <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
