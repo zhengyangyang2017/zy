@@ -176,6 +176,14 @@ function initTables() {
     db.exec(`ALTER TABLE sessions ADD COLUMN branch_point TEXT`)
   } catch { /* column already exists */ }
 
+  // Add pinned and tags to sessions (safe migration)
+  try {
+    db.exec(`ALTER TABLE sessions ADD COLUMN pinned INTEGER DEFAULT 0`)
+  } catch { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE sessions ADD COLUMN tags TEXT DEFAULT ''`)
+  } catch { /* column already exists */ }
+
   // FTS5 virtual table: created separately (can't use IF NOT EXISTS in exec with virtual tables)
   ensureFtsTable()
 }
@@ -208,6 +216,8 @@ export interface SessionRow {
   status: string
   parent_session_id?: string | null
   branch_point?: string | null
+  pinned?: number | null
+  tags?: string | null
 }
 
 export interface MessageRow {

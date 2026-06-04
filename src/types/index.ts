@@ -25,6 +25,8 @@ export interface Session {
   status: 'active' | 'background' | 'idle'
   parentSessionId?: string   // NEW: for conversation branching
   branchPoint?: string        // NEW: message ID where branch starts
+  pinned?: boolean            // NEW: session pinning
+  tags?: string[]             // NEW: session tags
 }
 
 export interface StreamState {
@@ -58,4 +60,12 @@ export interface FeedbackRecord {
   sessionId: string
   rating: 'up' | 'down'
   timestamp: string
+}
+
+export interface ClusterState {
+  agents: Array<{ agentId: string; status: string; role: string; tasksCompleted: number; tasksFailed: number; currentTask?: string }>
+  queueLength: number
+  totalCompleted: number
+  totalFailed: number
+  isRunning: boolean
 }

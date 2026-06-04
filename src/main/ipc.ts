@@ -563,6 +563,8 @@ function rowToSession(r: SessionRow) {
     status: r.status as 'active' | 'background' | 'idle',
     parentSessionId: r.parent_session_id ?? undefined,
     branchPoint: r.branch_point ?? undefined,
+    pinned: r.pinned === 1,
+    tags: r.tags ? r.tags.split(',').filter(Boolean) : [],
   }
 }
 
