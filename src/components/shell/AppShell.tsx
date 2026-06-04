@@ -7,22 +7,16 @@ import { LoginModal } from '../../renderer/components/auth/LoginModal'
 interface Props {
   sidebar: ReactNode
   main: ReactNode
-  rightPanel?: ReactNode
   bottomPanel?: ReactNode
   sidebarWidth: number
-  rightPanelWidth: number
   bottomPanelHeight: number
-  rightPanelOpen: boolean
   bottomPanelOpen: boolean
   onResizeSidebar: (w: number) => void
-  onResizeRightPanel: (w: number) => void
   onResizeBottomPanel: (h: number) => void
 }
 
 const MIN_SIDEBAR = 160
 const MAX_SIDEBAR = 480
-const MIN_RIGHT = 200
-const MAX_RIGHT = 600
 const MIN_BOTTOM = 100
 const MAX_BOTTOM = 500
 
@@ -54,7 +48,6 @@ function useDragResize(
       const newSize = Math.min(maxSize, Math.max(minSize, startSize.current + delta))
       onResize(newSize)
     }
-
     function onMouseUp() {
       if (dragging.current) {
         dragging.current = false
@@ -62,7 +55,6 @@ function useDragResize(
         document.body.style.userSelect = ''
       }
     }
-
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
     return () => {
@@ -75,98 +67,45 @@ function useDragResize(
 }
 
 export function AppShell({
-  sidebar,
-  main,
-  rightPanel,
-  bottomPanel,
-  sidebarWidth,
-  rightPanelWidth,
-  rightPanelOpen,
-  bottomPanelOpen,
-  bottomPanelHeight,
-  onResizeSidebar,
-  onResizeRightPanel,
-  onResizeBottomPanel,
+  sidebar, main, bottomPanel, sidebarWidth,
+  bottomPanelOpen, bottomPanelHeight, onResizeSidebar, onResizeBottomPanel,
 }: Props) {
   const [isMac, setIsMac] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
   useEffect(() => { setIsMac(navigator.platform.toLowerCase().includes('mac')) }, [])
 
   const sidebarResize = useDragResize(onResizeSidebar, MIN_SIDEBAR, MAX_SIDEBAR, sidebarWidth, 'horizontal')
-  const rightResize = useDragResize(onResizeRightPanel, MIN_RIGHT, MAX_RIGHT, rightPanelWidth, 'horizontal')
   const bottomResize = useDragResize(onResizeBottomPanel, MIN_BOTTOM, MAX_BOTTOM, bottomPanelHeight, 'vertical')
 
   return (
     <div className="flex flex-col h-screen bg-base">
       {isMac && <TitleBar />}
-
       <TrialBanner />
-
       <div className="flex flex-1 overflow-hidden">
         <div
-          className="flex-shrink-0 border-r border-hover overflow-hidden"
+          className="flex-shrink-0 border-r border-hover overflow-hidden transition-all duration-200 ease-out"
           style={{ width: `${sidebarWidth}px` }}
         >
           {sidebar}
         </div>
-
-        {/* Sidebar resize handle */}
-        <div
-          className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/50 active:bg-primary transition-colors z-10"
-          onMouseDown={sidebarResize.onMouseDown}
-        />
-
+        <div className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/50 active:bg-primary transition-colors z-10"
+          onMouseDown={sidebarResize.onMouseDown} />
         <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 overflow-hidden">
-              {main}
-            </div>
-
-            {rightPanelOpen && rightPanel && (
-              <>
-                {/* Right panel resize handle */}
-                <div
-                  className="w-1 flex-shrink-0 cursor-col-resize hover:bg-primary/50 active:bg-primary transition-colors z-10"
-                  onMouseDown={rightResize.onMouseDown}
-                />
-                <div
-                  className="flex-shrink-0 border-l border-hover overflow-hidden"
-                  style={{ width: `${rightPanelWidth}px` }}
-                >
-                  {rightPanel}
-                </div>
-              </>
-            )}
-          </div>
-
+          <div className="flex-1 overflow-hidden">{main}</div>
           {bottomPanelOpen && bottomPanel && (
             <>
-              {/* Bottom panel resize handle */}
-              <div
-                className="h-1 flex-shrink-0 cursor-row-resize hover:bg-primary/50 active:bg-primary transition-colors z-10"
-                onMouseDown={bottomResize.onMouseDown}
-              />
-              <div
-                className="flex-shrink-0 border-t border-hover overflow-hidden"
-                style={{ height: `${bottomPanelHeight}px` }}
-              >
-                {bottomPanel}
-              </div>
+              <div className="h-1 flex-shrink-0 cursor-row-resize hover:bg-primary/50 active:bg-primary transition-colors z-10"
+                onMouseDown={bottomResize.onMouseDown} />
+              <div className="flex-shrink-0 border-t border-hover overflow-hidden transition-all duration-200 ease-out"
+                style={{ height: `${bottomPanelHeight}px` }}>{bottomPanel}</div>
             </>
           )}
         </div>
       </div>
-
       <StatusBar />
-
-      <LoginModal
-        open={loginOpen}
-        onClose={() => setLoginOpen(false)}
-        onLoginSuccess={() => {
-          // Refresh license status after login
-          window.api.getLicenseStatus().then(() => {}).catch(() => {})
-        }}
-      />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} onLoginSuccess={() => {
+        window.api.getLicenseStatus().then(() => {}).catch(() => {})
+      }} />
     </div>
   )
 }
