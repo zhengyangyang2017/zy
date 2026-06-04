@@ -6,6 +6,8 @@ directories:
   buildResources: build
   output: dist
 
+npmRebuild: false
+
 files:
   - out/**/*
   - "!node_modules/**/*"
@@ -25,28 +27,10 @@ asarUnpack:
 
 win:
   target:
-    - target: nsis
-      arch: [x64]
     - target: portable
       arch: [x64]
   icon: build/icon.ico
   artifactName: ${productName}-${version}-win-x64.${ext}
-  # Code signing via environment variables
-  certificateFile: ${env.WIN_CSC_FILE}
-  certificatePassword: ${env.WIN_CSC_PASSWORD}
-  signingHashAlgorithms:
-    - sha256
-  sign: scripts/sign-win.js
-
-nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  deleteAppDataOnUninstall: false
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
-  installerHeaderIcon: build/icon.ico
 
 # ============================================
 # macOS
@@ -60,20 +44,9 @@ mac:
       arch: [x64, arm64]
   icon: build/icon.icns
   category: public.app-category.developer-tools
-  hardenedRuntime: true
-  gatekeeperAssess: false
-  # Notarization via environment variables
-  identity: ${env.APPLE_IDENTITY}
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
-  notarize:
-    teamId: ${env.APPLE_TEAM_ID}
-    appleId: ${env.APPLE_ID}
-    appleIdPassword: ${env.APPLE_APP_SPECIFIC_PASSWORD}
 
 dmg:
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
-  sign: false
 
 # ============================================
 # Linux
@@ -106,21 +79,9 @@ rpm:
 # Publish — multi-provider
 # ============================================
 
-publish:
-  # 1. GitHub Releases (free, built-in)
-  - provider: github
-    owner: ${env.GITHUB_OWNER}
-    repo: ${env.GITHUB_REPO}
-    releaseType: draft
-
-  # 2. S3 (optional, uncomment when ready)
-  # - provider: s3
-  #   bucket: ${env.AWS_S3_BUCKET}
-  #   region: ${env.AWS_REGION}
-  #   path: /releases
-  #   acl: public-read
-
-  # 3. Generic server (optional, uncomment when ready)
-  # - provider: generic
-  #   url: ${env.UPDATE_SERVER_URL}
-  #   channel: stable
+# Publish disabled for local builds. Uncomment for CI.
+# publish:
+#   - provider: github
+#     owner: ${env.GITHUB_OWNER}
+#     repo: ${env.GITHUB_REPO}
+#     releaseType: draft
