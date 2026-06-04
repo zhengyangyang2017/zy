@@ -5,7 +5,7 @@ export interface Message {
   content: string
   createdAt: string
   toolCalls?: ToolCall[]
-  feedback?: 'up' | 'down' | null  // NEW
+  feedback?: 'up' | 'down'
 }
 
 export interface ToolCall {
