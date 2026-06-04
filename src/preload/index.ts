@@ -80,6 +80,9 @@ const api = {
   listTasks: () =>
     ipcRenderer.invoke('tasks:list'),
 
+  getTasksList: () =>
+    ipcRenderer.invoke('tasks:list'),
+
   createTask: (topic: string, priority: number) =>
     ipcRenderer.invoke('tasks:create', topic, priority),
 
@@ -124,6 +127,9 @@ const api = {
   // Agent Cluster
   getClusterState: () =>
     ipcRenderer.invoke('cluster:state'),
+
+  getClusterAgents: () =>
+    ipcRenderer.invoke('cluster:agents'),
 
   submitClusterGoal: (goal: string, context?: string) =>
     ipcRenderer.invoke('cluster:submitGoal', goal, context),
